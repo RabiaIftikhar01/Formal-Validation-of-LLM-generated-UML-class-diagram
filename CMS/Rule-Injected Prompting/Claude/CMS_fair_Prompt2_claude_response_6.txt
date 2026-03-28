@@ -1,0 +1,129 @@
+Based on the requirements, user stories, and design best practices, here's a comprehensive class diagram for the learning platform:
+
+```plantuml
+@startuml
+
+' ============================================
+' Core User Hierarchy
+' ============================================
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  - createdAt: Date
+  
+  + User(userId: String, name: String, email: String)
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+  + setName(name: String): void
+  + setEmail(email: String): void
+  # validateEmail(email: String): boolean
+  + {abstract} getRole(): String
+}
+
+class Student {
+  - enrollments: List<Enrollment>
+  
+  + Student(userId: String, name: String, email: String)
+  + viewCourseMaterial(courseId: String): CourseMaterial
+  + getEnrollments(): List<Enrollment>
+  + getRole(): String
+}
+
+class Instructor {
+  - publishedCourses: List<Course>
+  
+  + Instructor(userId: String, name: String, email: String)
+  + createCourse(course: Course): boolean
+  + updateCourseMaterial(courseId: String, material: CourseMaterial): boolean
+  + getPublishedCourses(): List<Course>
+  + getRole(): String
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' ============================================
+' Course Hierarchy
+' ============================================
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - publishedDate: Date
+  - instructor: Instructor
+  - materials: List<CourseMaterial>
+  
+  + Course(courseId: String, title: String, description: String)
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + setTitle(title: String): void
+  + setDescription(description: String): void
+  + getInstructor(): Instructor
+  + setInstructor(instructor: Instructor): void
+  + addMaterial(material: CourseMaterial): void
+  + removeMaterial(materialId: String): boolean
+  + getMaterials(): List<CourseMaterial>
+  + {abstract} getCourseCategory(): String
+  + {abstract} getPrerequisites(): List<String>
+}
+
+class UndergraduateCourse {
+  - level: String
+  
+  + UndergraduateCourse(courseId: String, title: String, description: String)
+  + getCourseCategory(): String
+  + getPrerequisites(): List<String>
+  + setLevel(level: String): void
+  + getLevel(): String
+}
+
+class PostgraduateCourse {
+  - researchComponent: boolean
+  
+  + PostgraduateCourse(courseId: String, title: String, description: String)
+  + getCourseCategory(): String
+  + getPrerequisites(): List<String>
+  + setResearchComponent(required: boolean): void
+  + hasResearchComponent(): boolean
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' ============================================
+' Course Material
+' ============================================
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - content: String
+  - uploadDate: Date
+  - lastModified: Date
+  
+  + CourseMaterial(materialId: String, title: String, content: String)
+  + getMaterialId(): String
+  + getTitle(): String
+  + getContent(): String
+  + setContent(content: String): void
+  + getUploadDate(): Date
+  + getLastModified(): Date
+  - updateTimestamp(): void
+}
+
+Course "1" *-- "0..*" CourseMaterial : contains
+
+' ============================================
+' Enrollment
+' ============================================
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  - student: Student
+  - course: Course
+  
+  + Enrollment(student: Student, course: Course)
+  + getEnrollment
