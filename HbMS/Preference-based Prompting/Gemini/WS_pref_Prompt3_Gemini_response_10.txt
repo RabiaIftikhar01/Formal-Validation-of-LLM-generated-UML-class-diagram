@@ -1,0 +1,189 @@
+@startuml
+!pragma layout smetana
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+
+title Hospital Discharge Billing System
+
+' Enums for Patient Classification
+enum PatientCategory {
+    INSURED
+    GOVERNMENT
+    SELF_PAY
+}
+
+' Patient Information Module - Ensures separation of patient data
+class Patient {
+    - patientId : String
+    - name : String
+    - patientCategory : PatientCategory
+    - insuranceDetails : InsuranceDetails [0..1]
+    --
+    + getPatientId() : String
+    + getName() : String
+    + getPatientCategory() : PatientCategory
+    + getInsuranceDetails() : InsuranceDetails
+    + toString() : String
+}
+
+class InsuranceDetails {
+    - policyNumber : String
+    - providerName : String
+    - coveragePlan : String
+    --
+    + getPolicyNumber() : String
+    + getProviderName() : String
+    + getCoveragePlan() : String
+}
+
+Patient "1" o-- "0..1" InsuranceDetails : has
+
+' Pricing Module - Abstract base for all heterogeneous cost sources
+abstract class ChargeItem {
+    - description : String
+    - baseCost : double
+    --
+    + {abstract} calculateItemCost() : double
+    + getDescription() : String
+    + getBaseCost() : double
+}
+
+class MedicalProcedure extends ChargeItem {
+    - procedureCode : String
+    --
+    + calculateItemCost() : double
+}
+
+class Medication extends ChargeItem {
+    - medicationName : String
+    - dosage : String
+    --
+    + calculateItemCost() : double
+}
+
+class DiagnosticService extends ChargeItem {
+    - serviceType : String
+    --
+    + calculateItemCost() : double
+}
+
+class AccommodationCharge extends ChargeItem {
+    - roomType : String
+    - daysStayed : int
+    --
+    + calculateItemCost() : double
+}
+
+' Hospital Stay Aggregation - Assembles charges for a patient's stay
+class HospitalStay {
+    - stayId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - patient : Patient
+    - chargeItems : List<ChargeItem>
+    --
+    + addChargeItem(item : ChargeItem) : void
+    + getTotalBaseCost() : double
+    + getChargeItems() : List<ChargeItem>
+}
+
+HospitalStay "1" *-- "0..*" ChargeItem : includes >
+HospitalStay "1" --> "1" Patient : for >
+
+' Billing Policy Module - Strategy Pattern for dynamic billing rules
+interface IBillingPolicy {
+    + {abstract} calculateFinalAmount(baseCost : double, patient : Patient) : double
+    + {abstract} getPolicyName() : String
+}
+
+class InsuredPolicy implements IBillingPolicy {
+    - coPayPercentage : double
+    - deductibleAmount : double
+    - coverageLimits : Map<String, Double>
+    --
+    + calculateFinalAmount(baseCost : double, patient : Patient) : double
+    + getPolicyName() : String
+}
+
+class GovernmentPolicy implements IBillingPolicy {
+    - subsidyRate : double
+    - fixedCapAmount : double
+    --
+    + calculateFinalAmount(baseCost : double, double patient : Patient) : double
+    + getPolicyName() : String
+}
+
+class SelfPayPolicy implements IBillingPolicy {
+    + calculateFinalAmount(baseCost : double, double patient : Patient) : double
+    + getPolicyName() : String
+}
+
+' Billing Orchestration and Invoice Generation - Manages billing process
+class BillingPolicyFactory {
+    + getPolicy(patientCategory : PatientCategory) : IBillingPolicy
+}
+
+class BillingService {
+    - policyFactory : BillingPolicyFactory
+    --
+    + generateDischargeInvoice(patient : Patient, stay : HospitalStay) : DischargeInvoice
+    - selectBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+BillingService "1" *-- "1" BillingPolicyFactory : uses >
+BillingService .> IBillingPolicy : <<creates>>
+BillingService .> DischargeInvoice : <<creates>>
+
+' Discharge Invoice - The final output representing the patient's bill
+class DischargeInvoice {
+    - invoiceId : String
+    - invoiceDate : Date
+    - patient : Patient
+    - hospitalStay : HospitalStay
+    - totalBaseCost : double
+    - finalAmountDue : double
+    - appliedPolicyName : String
+    - lineItems : List<InvoiceLineItem>
+    --
+    + getInvoiceDetails() : String
+    + getFinalAmountDue() : double
+}
+
+' Invoice Line Item - Represents each charge item with its final calculated cost on the invoice
+class InvoiceLineItem {
+    - description : String
+    - baseCost : double
+    - finalCharge : double
+    --
+    + getDescription() : String
+    + getFinalCharge() : double
+}
+
+DischargeInvoice "1" *-- "0..*" InvoiceLineItem : has >
+DischargeInvoice "1" --> "1" Patient : for >
+DischargeInvoice "1" --> "1" HospitalStay : from >
+
+Patient --> PatientCategory : categorized as >
+BillingPolicyFactory --> PatientCategory : determines policy by >
+IBillingPolicy ..> Patient : applies to >
+
+note "Ensures strict separation of concerns:\n- Patient Information (Patient, InsuranceDetails)\n- Pricing Modules (ChargeItem hierarchy)\n- Billing Policies (IBillingPolicy hierarchy)" as N1
+N1 .down. Patient
+N1 .down. ChargeItem
+N1 .down. IBillingPolicy
+
+note "Strategy Pattern for flexible and dynamically interchangeable billing policies." as N2
+N2 .down. IBillingPolicy
+
+note "Factory Pattern for policy instantiation,\nenhancing extensibility and maintaining SRP." as N3
+N3 .right. BillingPolicyFactory
+
+note "Composition for charge items within a stay,\nensuring charges are managed as a cohesive unit." as N4
+N4 .down. HospitalStay
+
+note "Loose coupling between modules,\nfacilitating independent updates and testing." as N5
+N5 .left. BillingService
+@enduml

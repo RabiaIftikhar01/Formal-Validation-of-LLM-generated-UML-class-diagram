@@ -1,0 +1,148 @@
+@startuml
+' Naming convention: PascalCase for classes, singular nouns.
+' Attributes are camelCase, operations are camelCase.
+
+' ------------------ Patient Data ------------------
+class Patient {
+    - patientId : String
+    - name : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    + getPatientId() : String
+    + getName() : String
+    + getPatientCategory() : PatientCategory
+    + getInsurancePlan() : InsurancePlan
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+class InsurancePlan {
+    - planId : String
+    - providerName : String
+    - coverageDetails : String
+    - reimbursementCeilings : Map<String, Decimal>
+    - coPaymentModel : Decimal
+    + getCoverageDetails() : String
+    + getReimbursementCeilings() : Map<String, Decimal>
+    + getCoPaymentModel() : Decimal
+    + isCovered(serviceCode : String) : Boolean
+}
+
+Patient "1" --> "1" PatientCategory : classifies
+Patient "1" --> "0..1" InsurancePlan : has / isCoveredBy
+
+' ------------------ Billing Entries (Items) ------------------
+abstract class BillingEntry {
+    - description : String
+    - quantity : Decimal
+    - unitPrice : Decimal
+    + {abstract} calculateRawCost() : Decimal
+    + getDescription() : String
+    + getQuantity() : Decimal
+    + getUnitPrice() : Decimal
+}
+
+class ClinicalProcedureEntry extends BillingEntry {
+    - procedureCode : String
+    + calculateRawCost() : Decimal
+}
+
+class PharmaceuticalEntry extends BillingEntry {
+    - drugCode : String
+    + calculateRawCost() : Decimal
+}
+
+class LaboratoryEntry extends BillingEntry {
+    - testCode : String
+    + calculateRawCost() : Decimal
+}
+
+class RoomUtilizationEntry extends BillingEntry {
+    - roomNumber : String
+    - daysStayed : Integer
+    + calculateRawCost() : Decimal
+}
+
+' ------------------ Invoice ------------------
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - rawTotalAmount : Decimal ' Sum of all BillingEntry.calculateRawCost()
+    - finalTotalAmount : Decimal ' After policy application
+    - billingEntries : List<BillingEntry>
+    + addBillingEntry(entry : BillingEntry)
+    + removeBillingEntry(entry : BillingEntry)
+    + calculateRawTotal() : Decimal
+    + setFinalTotalAmount(amount : Decimal)
+    + getInvoiceId() : String
+    + getIssueDate() : Date
+    + getRawTotalAmount() : Decimal
+    + getFinalTotalAmount() : Decimal
+}
+
+Invoice "1" *-- "0..*" BillingEntry : contains
+
+' ------------------ Billing Policy (Strategy Pattern) ------------------
+interface BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : Decimal
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : Decimal
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidySchedule : Map<String, Decimal>
+    + applyPolicy(invoice : Invoice, patient : Patient) : Decimal
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : Decimal
+}
+
+InsuranceBillingPolicy "1" --> "1" InsurancePlan : uses / appliesRulesFrom
+
+' ------------------ Billing Processor / Context ------------------
+class BillingProcessor {
+    - currentPolicy : BillingPolicy
+    - policySelector : PolicySelector
+    + generateDischargeBill(patient : Patient, entries : List<BillingEntry>) : Invoice
+    + setBillingPolicy(policy : BillingPolicy)
+    + getCurrentPolicy() : BillingPolicy
+}
+
+class PolicySelector {
+    + selectPolicy(patient : Patient) : BillingPolicy
+}
+
+BillingProcessor "1" --> "1" BillingPolicy : delegatesTo / uses
+BillingProcessor "1" --> "1" PolicySelector : uses
+
+PolicySelector "1" ..> "1" BillingPolicy : instantiates / selects
+PolicySelector "1" --> "1" Patient : determinesPolicyFor
+
+' Notes for clarity and design justifications
+note "Strategy Pattern: Allows billing behavior to vary based on patient classification without modifying BillingProcessor." as N1
+BillingPolicy .. N1
+
+note "Encapsulates logic for selecting the appropriate BillingPolicy at runtime based on patient data." as N2
+PolicySelector .. N2
+
+note "Abstract base for all billable items. New item types (e.g., medical supplies) can be added easily." as N3
+BillingEntry <|-- ClinicalProcedureEntry
+BillingEntry <|-- PharmaceuticalEntry
+BillingEntry <|-- LaboratoryEntry
+BillingEntry <|-- RoomUtilizationEntry
+BillingEntry .. N3
+
+note "Invoice aggregates billing entries and stores both raw (pre-policy) and final (post-policy) totals." as N4
+Invoice .. N4
+
+note "Provides details about patient's insurance coverage, crucial for InsuranceBillingPolicy's calculations." as N5
+InsurancePlan .. N5
+
+@enduml

@@ -1,0 +1,124 @@
+@startuml
+' Set a consistent naming convention and style
+hide circle
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classStereotypeFontSize 10
+skinparam defaultFontName "Arial"
+
+' Design Notes for clarity and adherence to principles
+note "Strategy Pattern for flexible and runtime-replaceable billing policies." as N1
+note "Abstract 'Charge' and its specializations model various billable items (Composite-like structure)." as N2
+note "ChargeEntry acts as an association class, linking an Invoice to a Charge with an adjusted amount specific to that invoice." as N3
+
+interface BillingPolicy {
+    + calculateAdjustedAmount(rawAmount : double, patient : Patient) : double
+}
+N1 .u. BillingPolicy
+
+class InsurancePolicy implements BillingPolicy {
+    ' Operations to apply insurance-specific rules
+    + calculateAdjustedAmount(rawAmount : double, patient : Patient) : double
+}
+
+class GovernmentPolicy implements BillingPolicy {
+    ' Operations to apply government-subsidized rates
+    + calculateAdjustedAmount(rawAmount : double, patient : Patient) : double
+}
+
+class SelfPayPolicy implements BillingPolicy {
+    ' Operations to apply full charge amount
+    + calculateAdjustedAmount(rawAmount : double, patient : Patient) : double
+}
+
+class Patient {
+    - patientId : String
+    - name : String
+    - classification : String ' e.g., "INSURED", "GOVERNMENT", "SELF_PAY"
+    + getPatientId() : String
+    + getName() : String
+    + getClassification() : String
+}
+
+class InsuranceCoverage {
+    - policyNumber : String
+    - insurerName : String
+    - coverageDetails : Map<String, Double> ' e.g., serviceType -> coveragePercentage
+    - coPayAmount : double
+    + isCovered(serviceType : String) : boolean
+    + getCoveragePercentage(serviceType : String) : double
+    + getCoPayAmount() : double
+}
+
+Patient "1" --> "0..1" InsuranceCoverage : has
+
+abstract class Charge {
+    - description : String
+    - rawAmount : double
+    + getDescription() : String
+    + getRawAmount() : double
+    + getChargeType() : String ' e.g., "PROCEDURE", "PHARMACEUTICAL"
+}
+N2 .u. Charge
+
+class ProcedureCharge extends Charge {
+    - procedureCode : String
+    + getProcedureCode() : String
+}
+
+class PharmaceuticalCharge extends Charge {
+    - drugCode : String
+    - quantity : int
+    + getDrugCode() : String
+    + getQuantity() : int
+}
+
+class LaboratoryCharge extends Charge {
+    - testCode : String
+    + getTestCode() : String
+}
+
+class RoomCharge extends Charge {
+    - roomType : String
+    - numberOfDays : int
+    + getRoomType() : String
+    + getNumberOfDays() : int
+}
+
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalAmount : double
+    - patient : Patient
+    - chargeEntries : List<ChargeEntry>
+    + addChargeEntry(entry : ChargeEntry)
+    + calculateTotalAmount() : double
+    + getInvoiceDetails() : String
+}
+
+class ChargeEntry {
+    - adjustedAmount : double
+    + getAdjustedAmount() : double
+    + getCharge() : Charge
+}
+N3 .u. ChargeEntry
+
+Invoice "1" *-- "0..*" ChargeEntry : contains
+ChargeEntry "1" --> "1" Charge : references
+
+class BillingService {
+    + generateDischargeInvoice(patient : Patient, rawCharges : List<Charge>) : Invoice
+    - determineBillingPolicy(patient : Patient) : BillingPolicy
+}
+
+BillingService ..> BillingPolicy : uses >
+BillingService ..> Patient : queries >
+BillingService ..> Invoice : creates >
+BillingService ..> Charge : processes >
+
+InsurancePolicy ..> InsuranceCoverage : applies rules from >
+InsurancePolicy ..> Patient : checks classification >
+GovernmentPolicy ..> Patient : checks classification >
+SelfPayPolicy ..> Patient : checks classification >
+
+@enduml

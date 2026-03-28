@@ -1,0 +1,181 @@
+@startuml
+' Set a consistent style for readability
+skinparam class {
+    BorderColor #666666
+    BackgroundColor #EEEEEE
+    ArrowColor #666666
+    FontColor #333333
+}
+skinparam interface {
+    BorderColor #006600
+    BackgroundColor #CCFFCC
+    ArrowColor #006600
+    FontColor #006600
+}
+skinparam abstract {
+    BorderColor #CC0000
+    BackgroundColor #FFCCCC
+    ArrowColor #CC0000
+    FontColor #CC0000
+}
+skinparam enum {
+    BorderColor #999900
+    BackgroundColor #FFFFCC
+    ArrowColor #999900
+    FontColor #333333
+}
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #CCCC00
+    FontColor #333333
+}
+
+' Title and notes for overall context
+title Hospital Discharge Billing System - Class Diagram
+
+note as N1
+  This diagram models the core billing logic,
+  focusing on dynamic policy application and cost aggregation.
+  It adheres to the Strategy pattern for billing policies
+  and Polymorphism for cost item calculations to ensure extensibility and maintainability.
+end note
+
+' --- Patient and Hospital Stay ---
+class Patient {
+    - patientId : String
+    - name : String
+    - patientCategory : PatientCategory <<enum>>
+    -- Operations --
+    + getPatientInfo() : String
+    + getPatientCategory() : PatientCategory
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+class HospitalStay {
+    - stayId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - costItems : List<CostItem>
+    -- Operations --
+    + addCostItem(item : CostItem) : void
+    + getCostItems() : List<CostItem>
+    + getTotalBaseCost() : Money
+}
+
+Patient "1" -- "0..1" HospitalStay : has >
+note right of Patient : A patient can have one active hospital stay for billing.
+
+' --- Billing Core (Context for Strategy) ---
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - finalAmount : Money
+    - hospitalStay : HospitalStay
+    - billingPolicy : BillingPolicy <<strategy>>
+    -- Operations --
+    + Bill(stay : HospitalStay, policy : BillingPolicy)
+    + calculateFinalAmount() : Money
+    + getBillDetails() : String
+}
+
+HospitalStay "1" -- "1" Bill : generates >
+Bill "1" *-- "1" BillingPolicy : applies >
+note bottom of Bill : The Bill class acts as the context, delegating final amount calculation to the selected BillingPolicy strategy.
+
+' --- Billing Policies (Strategy Pattern) ---
+interface BillingPolicy {
+    -- Operations --
+    + calculateFinalAmount(stay : HospitalStay) : Money
+}
+
+class InsuredBillingPolicy implements BillingPolicy {
+    - insuranceCoverage : InsuranceCoverage
+    - coPayAmount : Money
+    -- Operations --
+    + calculateFinalAmount(stay : HospitalStay) : Money
+    + getInsuranceCoverage() : InsuranceCoverage
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidyRate : Double
+    - governmentProgramName : String
+    -- Operations --
+    + calculateFinalAmount(stay : HospitalStay) : Money
+}
+
+class SelfFundedBillingPolicy implements BillingPolicy {
+    -- Operations --
+    + calculateFinalAmount(stay : HospitalStay) : Money
+}
+
+' --- Cost Items (Polymorphic Aggregation) ---
+abstract class CostItem {
+    - itemId : String
+    - description : String
+    - baseAmount : Money
+    -- Operations --
+    + {abstract} calculateAmount() : Money
+    + getDescription() : String
+    + getBaseAmount() : Money
+}
+
+class MedicalProcedure extends CostItem {
+    - procedureCode : String
+    -- Operations --
+    + calculateAmount() : Money
+}
+
+class Medication extends CostItem {
+    - drugName : String
+    - dosage : String
+    -- Operations --
+    + calculateAmount() : Money
+}
+
+class DiagnosticService extends CostItem {
+    - serviceType : String
+    -- Operations --
+    + calculateAmount() : Money
+}
+
+class AccommodationCharge extends CostItem {
+    - roomType : String
+    - numNights : int
+    -- Operations --
+    + calculateAmount() : Money
+}
+
+HospitalStay "1" o-- "*" CostItem : aggregates >
+note right of CostItem : Each CostItem encapsulates its own pricing logic via calculateAmount().
+
+' --- Supporting Entities ---
+class InsuranceCoverage {
+    - policyNumber : String
+    - providerName : String
+    - coverageDetails : String
+    -- Operations --
+    + getCoverageLimit(costType : String) : Money
+    + isCovered(costType : String) : Boolean
+}
+
+InsuredBillingPolicy "1" -- "1" InsuranceCoverage : uses >
+
+' --- Value Object for Money ---
+class Money <<value object>> {
+    - amount : Double
+    - currency : String
+    -- Operations --
+    + add(other : Money) : Money
+    + subtract(other : Money) : Money
+    + multiply(factor : Double) : Money
+    + isGreaterThan(other : Money) : Boolean
+}
+
+note bottom of Money : Money is a value object to handle currency calculations safely and prevent floating-point errors.
+
+@enduml

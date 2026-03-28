@@ -1,0 +1,175 @@
+@startuml
+!pragma layout smetana
+
+' Enums for clear categorization
+enum PatientType {
+    INSURANCE
+    GOVERNMENT
+    SELF_PAY
+}
+
+enum BillStatus {
+    PENDING
+    PAID
+    PARTIAL
+    CANCELED
+}
+
+' Core Entities
+class Patient {
+    - patientId : String
+    - name : String
+    - patientType : PatientType
+    --
+    + getPatientType() : PatientType
+    + getInsuranceInfo() : InsuranceInfo
+    + setInsuranceInfo(info : InsuranceInfo) : void
+}
+
+class InsuranceInfo {
+    - policyNumber : String
+    - coverageDetails : String
+    - reimbursementLimit : BigDecimal
+    - coPaymentStructure : BigDecimal
+    --
+    + getCoverageDetails() : String
+    + getReimbursementLimit() : BigDecimal
+    + getCoPaymentStructure() : BigDecimal
+}
+
+abstract class Charge {
+    - chargeId : String
+    - description : String
+    - baseAmount : BigDecimal
+    --
+    + {abstract} getChargeType() : String
+    + getBaseAmount() : BigDecimal
+}
+
+class ProcedureCharge extends Charge {
+    + getChargeType() : String
+}
+
+class MedicationCharge extends Charge {
+    + getChargeType() : String
+}
+
+class DiagnosticTestCharge extends Charge {
+    + getChargeType() : String
+}
+
+class RoomCharge extends Charge {
+    + getChargeType() : String
+}
+
+class Bill {
+    - billId : String
+    - billingDate : Date
+    - totalAmount : BigDecimal
+    - status : BillStatus
+    --
+    + addLineItem(item : BillLineItem) : void
+    + calculateTotal() : void
+    + getPatient() : Patient
+    + getTotalAmount() : BigDecimal
+    + getStatus() : BillStatus
+}
+
+class BillLineItem {
+    - description : String
+    - baseAmount : BigDecimal
+    - adjustedAmount : BigDecimal
+    - adjustmentReason : String
+    --
+    + getAdjustedAmount() : BigDecimal
+    + getDescription() : String
+    + getBaseAmount() : BigDecimal
+}
+
+' Billing Policy (Strategy Pattern for runtime configurability)
+interface IBillingPolicy {
+    + {abstract} calculateAdjustedAmount(charge : Charge, patient : Patient) : BigDecimal
+    + {abstract} getPolicyType() : String
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedAmount(charge : Charge, patient : Patient) : BigDecimal
+    + getPolicyType() : String
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedAmount(charge : Charge, patient : Patient) : BigDecimal
+    + getPolicyType() : String
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedAmount(charge : Charge, patient : Patient) : BigDecimal
+    + getPolicyType() : String
+}
+
+' Service Layer for orchestration and policy selection
+class BillingService {
+    - policySelector : BillingPolicySelector
+    --
+    + generateBill(patient : Patient, charges : List<Charge>) : Bill
+    - createLineItem(charge : Charge, adjustedAmount : BigDecimal, reason : String) : BillLineItem
+}
+
+class BillingPolicySelector {
+    + getPolicy(patient : Patient) : IBillingPolicy
+    - createPolicyInstance(patientType : PatientType) : IBillingPolicy
+}
+
+' Relationships
+
+' Patient and InsuranceInfo - A patient may or may not have insurance
+Patient "1" o-- "0..1" InsuranceInfo : has >
+
+' Bill and Patient - A bill is generated for one patient
+Bill "1" --> "1" Patient : for >
+
+' Bill and BillLineItem - A bill is composed of multiple line items
+Bill "1" *-- "1..*" BillLineItem : includes >
+
+' BillLineItem and Charge - A line item details a specific charge (capturing its state at billing)
+BillLineItem "1" --> "1" Charge : details >
+
+' BillingService orchestration - Uses other components to perform its task
+BillingService "1" --> "1" BillingPolicySelector : uses >
+BillingService .> IBillingPolicy : <<uses>>
+BillingService .> Patient : <<uses>>
+BillingService .> Charge : <<uses>>
+BillingService .> Bill : <<creates>>
+BillingService .> BillLineItem : <<creates>>
+
+' BillingPolicySelector creates concrete policy instances
+BillingPolicySelector .> IBillingPolicy : <<creates>>
+BillingPolicySelector .> PatientType : <<uses>>
+
+' Policy implementations
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' Concrete policies interact with Patient/InsuranceInfo to apply rules
+InsuranceBillingPolicy .> Patient : <<uses>>
+InsuranceBillingPolicy .> InsuranceInfo : <<uses>>
+GovernmentBillingPolicy .> Patient : <<uses>> ' May check patient demographics for program eligibility
+
+' Notes for clarity and design justification
+note "Strategy Pattern for flexible billing rules.\nPolicies are interchangeable at runtime without modifying BillingService." as N1
+IBillingPolicy .. N1
+
+note "Abstract base for all types of charges.\nEnsures extensibility for new charge types (e.g., TherapyCharge, PharmacyCharge) by simply extending 'Charge'." as N2
+Charge .. N2
+
+note "Orchestrates the billing process:\n1. Selects the appropriate billing policy via PolicySelector.\n2. Applies the policy to each charge to calculate adjusted amounts.\n3. Constructs the final Bill with BillLineItems." as N3
+BillingService .. N3
+
+note "Determines the appropriate billing policy based on patient type and other relevant patient details (e.g., insurance status)." as N4
+BillingPolicySelector .. N4
+
+note "BillLineItem acts as a snapshot of a charge's details\nand its adjusted amount at the time of billing.\nThis ensures immutability of historical billing data." as N5
+BillLineItem .. N5
+
+@enduml

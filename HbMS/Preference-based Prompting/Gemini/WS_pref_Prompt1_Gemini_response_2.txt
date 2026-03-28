@@ -1,0 +1,178 @@
+@startuml
+!theme plain
+
+' -----------------------------------------------------------------
+' Classes for Patient Information and related details
+' -----------------------------------------------------------------
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - patientType : String ' e.g., "Insured", "GovernmentProgram", "SelfPay"
+    --
+    + getPatientId() : String
+    + getName() : String
+    + getPatientType() : String
+    + setInsuranceInfo(info : InsuranceInfo) : void
+    + getInsuranceInfo() : InsuranceInfo
+}
+
+class InsuranceInfo {
+    - policyNumber : String
+    - providerName : String
+    - coverageDetails : String ' e.g., "80% co-insurance", "Deductible $500"
+    - planType : String ' e.g., "PPO", "HMO"
+    --
+    + getPolicyNumber() : String
+    + getProviderName() : String
+    + getCoverageDetails() : String
+    + getPlanType() : String
+}
+
+' -----------------------------------------------------------------
+' Abstract class and concrete classes for diverse charges (Pricing Components)
+' -----------------------------------------------------------------
+abstract class Charge {
+    - description : String
+    --
+    + {abstract} calculateBaseAmount() : double
+    + getDescription() : String
+}
+
+class ProcedureCharge extends Charge {
+    - procedureCode : String
+    - quantity : int
+    - unitPrice : double
+    --
+    + ProcedureCharge(desc : String, code : String, qty : int, price : double)
+    + calculateBaseAmount() : double
+    + getProcedureCode() : String
+}
+
+class MedicationCharge extends Charge {
+    - medicationId : String
+    - units : int
+    - pricePerUnit : double
+    --
+    + MedicationCharge(desc : String, id : String, units : int, price : double)
+    + calculateBaseAmount() : double
+    + getMedicationId() : String
+}
+
+class DiagnosticTestCharge extends Charge {
+    - testCode : String
+    - testFee : double
+    --
+    + DiagnosticTestCharge(desc : String, code : String, fee : double)
+    + calculateBaseAmount() : double
+    + getTestCode() : String
+}
+
+class RoomCharge extends Charge {
+    - roomNumber : String
+    - dailyRate : double
+    - daysStayed : int
+    --
+    + RoomCharge(desc : String, roomNum : String, rate : double, days : int)
+    + calculateBaseAmount() : double
+    + getRoomNumber() : String
+}
+
+' -----------------------------------------------------------------
+' Class representing the generated Bill
+' -----------------------------------------------------------------
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - totalBaseAmount : double
+    - finalAmount : double
+    - patient : Patient
+    - charges : List<Charge>
+    --
+    + Bill(patient : Patient)
+    + addCharge(charge : Charge) : void
+    + calculateTotalBaseAmount() : double
+    + getBillDetails() : String
+    + setFinalAmount(amount : double) : void
+    + getPatient() : Patient
+    + getCharges() : List<Charge>
+    + getTotalBaseAmount() : double
+    + getFinalAmount() : double
+}
+
+' -----------------------------------------------------------------
+' Interface and concrete classes for Billing Policies (Strategy Pattern)
+' -----------------------------------------------------------------
+interface IBillingPolicy {
+    + calculateFinalAmount(bill : Bill, patient : Patient) : double
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - coverageRules : Map<String, Double> ' e.g., "PPO_TIER1": 0.8 (80% coverage)
+    - reimbursementLimits : double ' Max amount insurance will pay
+    - coPaymentStructures : Map<String, Double> ' e.g., "VISIT": 25.0 (co-pay for visits)
+    --
+    + InsuranceBillingPolicy(rules : Map<String, Double>, limits : double, coPays : Map<String, Double>)
+    + calculateFinalAmount(bill : Bill, patient : Patient) : double
+    - applyCoverage(baseAmount : double, patientInfo : InsuranceInfo) : double
+    - applyCoPayments(baseAmount : double, patientInfo : InsuranceInfo) : double
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidizedRateFactor : double ' e.g., 0.6 for 60% subsidy
+    - programName : String
+    --
+    + GovernmentBillingPolicy(factor : double, name : String)
+    + calculateFinalAmount(bill : Bill, patient : Patient) : double
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    --
+    + calculateFinalAmount(bill : Bill, patient : Patient) : double
+}
+
+' -----------------------------------------------------------------
+' Service class to orchestrate the billing process
+' -----------------------------------------------------------------
+class BillingService {
+    --
+    + BillingService()
+    + generateDischargeBill(patient : Patient, rawCharges : List<Charge>) : Bill
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+' -----------------------------------------------------------------
+' Relationships
+' -----------------------------------------------------------------
+Patient "1" -- "0..1" InsuranceInfo : has >
+
+Bill "1" *-- "0..*" Charge : includes >
+Bill "1" -- "1" Patient : for >
+
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+BillingService ..> Patient : processes
+BillingService ..> Charge : processes
+BillingService ..> Bill : creates
+BillingService ..> IBillingPolicy : uses >
+
+' -----------------------------------------------------------------
+' Notes for clarification
+' -----------------------------------------------------------------
+note "Strategy Pattern for\ninterchangeable billing policies\nat runtime, ensuring extensibility." as N_PolicyStrategy
+IBillingPolicy .. N_PolicyStrategy
+
+note "Abstract class for charge types\nwith specific base pricing logic.\nSupports diverse charge sources." as N_ChargeHierarchy
+Charge .. N_ChargeHierarchy
+
+note "Strong separation between:\n- Patient Records (Patient, InsuranceInfo)\n- Pricing Components (Charge hierarchy)\n- Billing Policies (IBillingPolicy hierarchy)" as N_Separation
+Patient .. N_Separation
+Charge .. N_Separation
+IBillingPolicy .. N_Separation
+
+note "Orchestrates the billing process,\ndelegating policy selection and calculation." as N_BillingServiceRole
+BillingService .. N_BillingServiceRole
+
+@enduml

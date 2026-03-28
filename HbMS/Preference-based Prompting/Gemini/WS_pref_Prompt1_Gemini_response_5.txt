@@ -1,0 +1,128 @@
+@startuml
+!theme mars
+
+title Hospital Discharge Billing System
+
+' Abstract base for all chargeable items
+abstract class ChargeItem {
+    - id : String
+    - description : String
+    - baseAmount : decimal
+    + {abstract} getBaseAmount() : decimal
+    + {abstract} getDescription() : String
+}
+
+' Concrete Charge Items
+class Procedure extends ChargeItem {
+    - procedureCode : String
+    + getBaseAmount() : decimal
+    + getDescription() : String
+}
+
+class Medication extends ChargeItem {
+    - medicationCode : String
+    - dosage : String
+    + getBaseAmount() : decimal
+    + getDescription() : String
+}
+
+class DiagnosticTest extends ChargeItem {
+    - testCode : String
+    + getBaseAmount() : decimal
+    + getDescription() : String
+}
+
+class RoomCharge extends ChargeItem {
+    - roomNumber : String
+    - dailyRate : decimal
+    - daysOccupied : int
+    + getBaseAmount() : decimal
+    + getDescription() : String
+}
+
+' Represents a patient
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - primaryContact : String
+    - paymentType : PaymentType <<enum>>
+    + getPatientId() : String
+    + getName() : String
+    + getPaymentType() : PaymentType
+}
+
+enum PaymentType {
+    SELF_PAY
+    INSURANCE
+    GOVERNMENT_PROGRAM
+}
+
+' Represents the generated discharge bill
+class Bill {
+    - billId : String
+    - dateGenerated : Date
+    - totalAmount : decimal
+    - status : String
+    + addCharge(item : ChargeItem)
+    + getChargeItems() : List<ChargeItem>
+    + setTotalAmount(amount : decimal)
+    + getTotalAmount() : decimal
+}
+
+' Strategy Interface for different billing policies
+interface IBillingPolicy {
+    + {abstract} calculateFinalBill(bill : Bill, patient : Patient) : decimal
+}
+
+' Concrete Billing Policies
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - coverageRules : Map<String, decimal>
+    - reimbursementLimits : Map<String, decimal>
+    - coPaymentStructures : Map<String, decimal>
+    + calculateFinalBill(bill : Bill, patient : Patient) : decimal
+}
+
+class GovernmentProgramBillingPolicy implements IBillingPolicy {
+    - subsidizedRates : Map<String, decimal>
+    + calculateFinalBill(bill : Bill, patient : Patient) : decimal
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateFinalBill(bill : Bill, patient : Patient) : decimal
+}
+
+' Factory to create billing policies based on patient's payment type
+class BillingPolicyFactory {
+    + createPolicy(paymentType : PaymentType) : IBillingPolicy
+}
+
+' Service responsible for orchestrating the bill generation process
+class BillingService {
+    - policyFactory : BillingPolicyFactory
+    + generateDischargeBill(patient : Patient, chargeItems : List<ChargeItem>) : Bill
+    - determinePolicy(paymentType : PaymentType) : IBillingPolicy
+}
+
+' Relationships
+Patient "1" --> "0..*" Bill : generates for >
+Bill "1" *-- "1..*" ChargeItem : contains >
+
+BillingService "1" --> "1" BillingPolicyFactory : uses >
+BillingPolicyFactory ..> IBillingPolicy : creates
+BillingService ..> IBillingPolicy : applies
+BillingService ..> Patient : processes
+BillingService ..> Bill : creates
+BillingService ..> ChargeItem : collects
+
+' Notes for clarity
+note "Strategy Pattern for flexible billing rules,\nallowing runtime interchangeability and extensibility" as N1
+IBillingPolicy .. N1
+
+note "Factory Method for policy instantiation,\ndecoupling BillingService from concrete policies" as N2
+BillingPolicyFactory .. N2
+
+note "ChargeItem hierarchy supports various charge types\nwith independent base pricing" as N3
+ChargeItem .. N3
+
+@enduml

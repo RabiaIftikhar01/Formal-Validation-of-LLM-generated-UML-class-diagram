@@ -1,0 +1,241 @@
+@startuml
+!pragma layout smetana
+
+' -----------------------------------------------------------------------
+' Hospital Billing System - Class Diagram
+' -----------------------------------------------------------------------
+
+' Notes for overall design principles
+note "This model employs the Strategy pattern for flexible billing policies\nand separates concerns for maintainability and extensibility." as N1
+
+' -----------------------------------------------------------------------
+' Patient and Related Data
+' -----------------------------------------------------------------------
+
+class Patient {
+    - id : String
+    - name : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - patientType : PatientType <<enum>>
+    --
+    + getPatientType() : PatientType
+    + getInsuranceDetails() : InsuranceDetails
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+class InsuranceDetails {
+    - policyNumber : String
+    - providerName : String
+    - planName : String
+    - coPaymentRate : BigDecimal
+    - deductibleAmount : BigDecimal
+    - annualLimit : BigDecimal
+    --
+    + getPolicyNumber() : String
+    + getCoPaymentRate() : BigDecimal
+    + getDeductibleAmount() : BigDecimal
+    + getAnnualLimit() : BigDecimal
+}
+
+' -----------------------------------------------------------------------
+' Service Items (Raw Billable Components)
+' -----------------------------------------------------------------------
+
+abstract class ServiceItem {
+    - code : String
+    - description : String
+    - basePrice : BigDecimal
+    --
+    + getCode() : String
+    + getDescription() : String
+    + getBasePrice() : BigDecimal
+}
+note right of ServiceItem : Base class for all billable services\nwith their original, unadjusted pricing.
+
+class ClinicalProcedure extends ServiceItem {
+    - procedureType : String
+    - durationMinutes : int
+    --
+    + calculateProcedureCost() : BigDecimal
+}
+
+class Pharmaceutical extends ServiceItem {
+    - drugName : String
+    - dosage : String
+    - quantity : int
+    - unitPrice : BigDecimal
+    --
+    + calculateDrugCost() : BigDecimal
+}
+
+class LaboratoryDiagnostic extends ServiceItem {
+    - testName : String
+    - resultUnits : String
+    --
+    + calculateTestCost() : BigDecimal
+}
+
+class RoomUtilization extends ServiceItem {
+    - roomNumber : String
+    - dailyRate : BigDecimal
+    - daysOccupied : int
+    --
+    + calculateRoomCost() : BigDecimal
+}
+
+' -----------------------------------------------------------------------
+' Billing Policies (Strategy Pattern - Replaceable at Runtime)
+' -----------------------------------------------------------------------
+
+interface BillingPolicy {
+    + calculateLineItemAmount(item : ServiceItem, patient : Patient) : BigDecimal
+    + calculateTotalDiscount(invoice : Invoice) : BigDecimal
+    + getName() : String
+}
+note top of BillingPolicy : Strategy pattern for encapsulating\ndifferent billing behaviors, replaceable at runtime.
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    - insuranceProviderGateway : InsuranceProviderGateway
+    --
+    + calculateLineItemAmount(item : ServiceItem, patient : Patient) : BigDecimal
+    + calculateTotalDiscount(invoice : Invoice) : BigDecimal
+    + getName() : String
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidySchedule : Map<String, BigDecimal>
+    --
+    + calculateLineItemAmount(item : ServiceItem, patient : Patient) : BigDecimal
+    + calculateTotalDiscount(invoice : Invoice) : BigDecimal
+    + getName() : String
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateLineItemAmount(item : ServiceItem, patient : Patient) : BigDecimal
+    + calculateTotalDiscount(invoice : Invoice) : BigDecimal
+    + getName() : String
+}
+
+' -----------------------------------------------------------------------
+' Invoice Generation and Structure
+' -----------------------------------------------------------------------
+
+class Invoice {
+    - invoiceNumber : String
+    - issueDate : Date
+    - patient : Patient
+    - lineItems : List<InvoiceLineItem>
+    - appliedPolicy : BillingPolicy
+    - subTotal : BigDecimal
+    - totalDiscount : BigDecimal
+    - finalAmount : BigDecimal
+    --
+    + addLineItem(item : InvoiceLineItem)
+    + calculateTotals()
+    + getFinalAmount() : BigDecimal
+    + printInvoice()
+}
+
+class InvoiceLineItem {
+    - description : String
+    - originalPrice : BigDecimal
+    - policyDiscount : BigDecimal
+    - finalPrice : BigDecimal
+    - serviceItemRef : ServiceItem
+    --
+    + getFinalPrice() : BigDecimal
+}
+note right of InvoiceLineItem : Represents a single service item\non the invoice *after* the billing policy has been applied.
+
+class BillingService {
+    - patientRepository : PatientRepository
+    - serviceItemRepository : ServiceItemRepository
+    - policyFactory : BillingPolicyFactory
+    --
+    + generateDischargeInvoice(patientId : String, serviceItemIds : List<String>) : Invoice
+    - determineBillingPolicy(patient : Patient) : BillingPolicy
+}
+note left of BillingService : Orchestrates the invoice generation process,\nincluding policy determination and application.
+
+' -----------------------------------------------------------------------
+' External Integrations and Data Access
+' -----------------------------------------------------------------------
+
+interface PatientRepository {
+    + findById(id : String) : Patient
+}
+
+interface ServiceItemRepository {
+    + findById(id : String) : ServiceItem
+    + findAllByPatientAdmission(patientId : String) : List<ServiceItem>
+}
+
+class BillingPolicyFactory {
+    + createPolicy(patientType : PatientType) : BillingPolicy
+}
+note left of BillingPolicyFactory : Responsible for instantiating the correct\nBillingPolicy based on patient classification.
+
+interface InsuranceProviderGateway {
+    + getCoverageDetails(policyNumber : String) : InsuranceCoverage
+}
+
+class InsuranceCoverage {
+    - policyNumber : String
+    - coveredPercentage : BigDecimal
+    - remainingDeductible : BigDecimal
+    - maxCoveragePerService : Map<String, BigDecimal>
+    --
+    + getCoveredPercentage() : BigDecimal
+    + getRemainingDeductible() : BigDecimal
+    + getMaxCoverageForService(serviceCode : String) : BigDecimal
+}
+
+' -----------------------------------------------------------------------
+' Relationships
+' -----------------------------------------------------------------------
+
+' Patient relationships
+Patient "1" --> "0..1" InsuranceDetails : has
+Patient "1" --> "1" PatientType : has type
+
+' ServiceItem inheritance
+ServiceItem <|-- ClinicalProcedure
+ServiceItem <|-- Pharmaceutical
+ServiceItem <|-- LaboratoryDiagnostic
+ServiceItem <|-- RoomUtilization
+
+' BillingPolicy strategy implementation
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' Invoice composition and associations
+Invoice "1" *-- "0..*" InvoiceLineItem : contains
+Invoice "1" --> "1" Patient : for
+Invoice "1" --> "1" BillingPolicy : applies
+
+' InvoiceLineItem references the original ServiceItem
+InvoiceLineItem "1" --> "1" ServiceItem : references
+
+' BillingService orchestration
+BillingService "1" --> "1" PatientRepository : uses
+BillingService "1" --> "1" ServiceItemRepository : uses
+BillingService "1" --> "1" BillingPolicyFactory : uses
+BillingService "1" ..> "1" Invoice : creates
+
+' Policy factory creates policies
+BillingPolicyFactory "1" ..> "1" BillingPolicy : creates
+
+' Insurance policy uses external gateway
+InsuranceBillingPolicy "1" --> "1" InsuranceProviderGateway : uses
+
+' Insurance gateway retrieves coverage details
+InsuranceProviderGateway "1" ..> "1" InsuranceCoverage : retrieves
+
+@enduml

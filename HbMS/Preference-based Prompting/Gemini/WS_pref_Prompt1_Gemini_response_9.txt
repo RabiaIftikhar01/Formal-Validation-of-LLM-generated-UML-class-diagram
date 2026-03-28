@@ -1,0 +1,175 @@
+@startuml
+' Enums
+enum PaymentMethodType {
+    INSURANCE
+    GOVERNMENT_PROGRAM
+    SELF_PAY
+}
+
+enum BillStatus {
+    PENDING
+    PARTIAL_PAID
+    PAID
+    CANCELLED
+}
+
+' Core Entities
+class Patient {
+    - patientId : String
+    - name : String
+    - dob : Date
+    - paymentMethodType : PaymentMethodType
+    + getPatientId() : String
+    + getName() : String
+    + getPaymentMethodType() : PaymentMethodType
+    + getInsuranceDetails() : InsuranceDetails
+}
+
+class InsuranceDetails {
+    - providerName : String
+    - policyNumber : String
+    - coveragePercentage : BigDecimal
+    - maxReimbursement : BigDecimal
+    - coPayAmount : BigDecimal
+    - deductibleAmount : BigDecimal
+    + getCoveragePercentage() : BigDecimal
+    + getMaxReimbursement() : BigDecimal
+    + getCoPayAmount() : BigDecimal
+    + getDeductibleAmount() : BigDecimal
+}
+
+class MedicalRecord {
+    - recordId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    + addTreatment(treatment : Treatment)
+    + getTreatments() : List<Treatment>
+}
+
+' Treatment Hierarchy (Billable Items)
+abstract class Treatment {
+    - treatmentId : String
+    - description : String
+    - date : Date
+    - baseCost : BigDecimal
+    # pricingRule : PricingRule
+    + {abstract} calculateFinalCost() : BigDecimal
+    + getTreatmentId() : String
+    + getDescription() : String
+    + getBaseCost() : BigDecimal
+}
+
+class Procedure extends Treatment {
+    - procedureCode : String
+    + calculateFinalCost() : BigDecimal
+}
+
+class Medication extends Treatment {
+    - medicationName : String
+    - dosage : String
+    + calculateFinalCost() : BigDecimal
+}
+
+class DiagnosticTest extends Treatment {
+    - testType : String
+    + calculateFinalCost() : BigDecimal
+}
+
+class RoomOccupancy extends Treatment {
+    - roomNumber : String
+    - dailyRate : BigDecimal
+    - numberOfDays : int
+    + calculateFinalCost() : BigDecimal
+}
+
+' Pricing Rules (Strategy Pattern for individual treatment costs)
+interface PricingRule {
+    + apply(baseCost : BigDecimal) : BigDecimal
+}
+
+class StandardPricingRule implements PricingRule {
+    + apply(baseCost : BigDecimal) : BigDecimal
+}
+
+class DiscountPricingRule implements PricingRule {
+    - discountPercentage : BigDecimal
+    + apply(baseCost : BigDecimal) : BigDecimal
+}
+
+' Bill Components
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - totalCharges : BigDecimal
+    - patientResponsibility : BigDecimal
+    - status : BillStatus
+    + addLineItem(item : BillLineItem)
+    + getLineItems() : List<BillLineItem>
+    + calculateTotalCharges() : BigDecimal
+    + setPatientResponsibility(amount : BigDecimal)
+    + getPatientResponsibility() : BigDecimal
+}
+
+class BillLineItem {
+    - description : String
+    - originalCost : BigDecimal
+    - finalCost : BigDecimal
+    - date : Date
+    + getDescription() : String
+    + getFinalCost() : BigDecimal
+}
+
+' Billing Policies (Strategy Pattern for overall patient responsibility)
+interface BillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : BigDecimal
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : BigDecimal
+}
+
+class GovernmentProgramBillingPolicy implements BillingPolicy {
+    - subsidizedRateFactor : BigDecimal
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : BigDecimal
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : BigDecimal
+}
+
+' Orchestration Service
+class DischargeBillingService {
+    + generateDischargeBill(patient : Patient, medicalRecord : MedicalRecord) : Bill
+    - selectBillingPolicy(patient : Patient) : BillingPolicy
+    - applyPricingRules(treatments : List<Treatment>) : List<BillLineItem>
+}
+
+' Relationships
+
+Patient "1" -- "1" MedicalRecord : has
+Patient "1" -- "0..1" InsuranceDetails : "has" details for
+MedicalRecord "1" -- "*" Treatment : includes
+
+Treatment "1" -- "1" PricingRule : uses >
+
+Bill "1" *-- "*" BillLineItem : itemizes
+
+Patient "1" -- "0..*" Bill : "receives"
+
+DischargeBillingService .up.> Patient : processes
+DischargeBillingService .up.> MedicalRecord : uses
+DischargeBillingService .up.> Bill : creates
+DischargeBillingService .up.> BillingPolicy : applies
+DischargeBillingService .up.> PricingRule : determines
+
+' Notes for clarity
+note "Strategy Pattern for billing logic, allowing policies to be interchangeable at runtime." as N1
+BillingPolicy .. N1
+
+note "Strategy Pattern for individual charge pricing, allowing pricing rules to be configured independently." as N2
+PricingRule .. N2
+
+note "Composition: BillLineItem lifecycle is dependent on the Bill." as N3
+Bill *-- "*" BillLineItem .. N3
+
+@enduml

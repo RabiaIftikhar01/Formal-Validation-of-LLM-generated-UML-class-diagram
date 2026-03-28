@@ -1,0 +1,182 @@
+@startuml
+' Global settings for consistency and readability
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+
+' Notes for explanation: This diagram models the core discharge billing functionality,
+' focusing on extensible billing policies and entry types, ensuring loose coupling
+' and adaptability to changing regulatory demands.
+note "This diagram models the core discharge billing functionality,\nfocusing on extensible billing policies and entry types." as N1
+
+' --- Patient and Bill Data ---
+class Patient {
+    - patientId : String
+    - name : String
+    - patientType : PatientType <<enum>>
+    - insuranceCoverage : InsuranceCoverage
+    -- Operations --
+    + getPatientId() : String
+    + getName() : String
+    + getPatientType() : PatientType
+    + getInsuranceCoverage() : InsuranceCoverage
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - totalAmount : decimal
+    -- Associations --
+    - patient : Patient
+    - billingEntries : List<BillingEntry>
+    -- Operations --
+    + getBillId() : String
+    + getIssueDate() : Date
+    + getTotalAmount() : decimal
+    + addEntry(entry : BillingEntry) : void
+    + calculateSubtotal() : decimal
+    + setTotalAmount(amount : decimal) : void
+}
+
+class BillingEntry {
+    - entryId : String
+    - description : String
+    - quantity : int
+    - unitPrice : decimal
+    -- Associations --
+    - pricingRule : PricingRule
+    -- Operations --
+    + getEntryId() : String
+    + getDescription() : String
+    + getQuantity() : int
+    + getUnitPrice() : decimal
+    + calculateLineItemAmount() : decimal
+}
+
+' --- Pricing Rules (Strategy for individual entry pricing) ---
+abstract class PricingRule {
+    + {abstract} applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+class DefaultPricingRule extends PricingRule {
+    + applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+class ProcedurePricingRule extends PricingRule {
+    + applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+class MedicationPricingRule extends PricingRule {
+    + applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+class LabDiagnosticPricingRule extends PricingRule {
+    + applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+class RoomUtilizationPricingRule extends PricingRule {
+    + applyPricing(baseAmount : decimal, quantity : int) : decimal
+}
+
+' --- Billing Policies (Strategy for overall bill calculation) ---
+interface BillingPolicy {
+    + calculateFinalBillAmount(bill : Bill, patient : Patient) : decimal
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    -- Operations --
+    + calculateFinalBillAmount(bill : Bill, patient : Patient) : decimal
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    -- Operations --
+    + calculateFinalBillAmount(bill : Bill, patient : Patient) : decimal
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateFinalBillAmount(bill : Bill, patient : Patient) : decimal
+}
+
+' --- Policy and Program Details ---
+class InsuranceCoverage {
+    - policyId : String
+    - carrierName : String
+    - coverageDetails : String // e.g., JSON or complex object for rules
+    - reimbursementCeilings : Map<String, decimal>
+    - coPaymentModel : String
+    -- Operations --
+    + getPolicyId() : String
+    + getCarrierName() : String
+    + getCoverageRules() : String
+    + getReimbursementCeiling(serviceType : String) : decimal
+    + getCoPaymentAmount() : decimal
+}
+
+class SubsidyProgram {
+    - programId : String
+    - programName : String
+    - subsidizedRates : Map<String, decimal>
+    -- Operations --
+    + getProgramId() : String
+    + getProgramName() : String
+    + getSubsidizedRate(serviceType : String) : decimal
+}
+
+' --- Services and Resolvers ---
+class BillingPolicyResolver {
+    -- Associations --
+    - defaultSelfPayPolicy : SelfPayBillingPolicy
+    - defaultGovernmentPolicy : GovernmentBillingPolicy
+    -- Operations --
+    + resolvePolicy(patient : Patient) : BillingPolicy
+}
+
+class DischargeBillingService {
+    -- Associations --
+    - policyResolver : BillingPolicyResolver
+    -- Operations --
+    + generateDischargeBill(patient : Patient, entries : List<BillingEntry>) : Bill
+}
+
+' --- Relationships ---
+
+Patient "1" -- "0..*" Bill : generates
+Bill "1" *-- "0..*" BillingEntry : contains
+
+BillingEntry "1" o-- "1" PricingRule : applies
+
+BillingPolicyResolver "1" --> "1" BillingPolicy : resolves to
+DischargeBillingService "1" --> "1" BillingPolicyResolver : uses
+DischargeBillingService "1" --> "1" Bill : creates
+DischargeBillingService "1" --> "1" Patient : processes
+DischargeBillingService "1" --> "0..*" BillingEntry : gathers
+
+Patient "1" o-- "0..1" InsuranceCoverage : has
+
+InsuranceBillingPolicy "1" --> "1" InsuranceCoverage : considers
+GovernmentBillingPolicy "1" --> "1" SubsidyProgram : considers
+
+' Generalization for PricingRule
+PricingRule <|-- DefaultPricingRule
+PricingRule <|-- ProcedurePricingRule
+PricingRule <|-- MedicationPricingRule
+PricingRule <|-- LabDiagnosticPricingRule
+PricingRule <|-- RoomUtilizationPricingRule
+
+' Generalization for BillingPolicy
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' Dependencies for Policy Resolver
+BillingPolicyResolver ..> InsuranceBillingPolicy
+BillingPolicyResolver ..> GovernmentBillingPolicy
+BillingPolicyResolver ..> SelfPayBillingPolicy
+
+@enduml

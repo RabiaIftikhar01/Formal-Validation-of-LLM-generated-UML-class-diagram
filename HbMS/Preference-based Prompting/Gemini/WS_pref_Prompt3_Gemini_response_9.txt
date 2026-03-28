@@ -1,0 +1,189 @@
+@startuml
+' Style settings for better readability and conformity
+skinparam class {
+    BackgroundColor white
+    BorderColor black
+    ArrowColor black
+    AttributeFontColor #333333
+    MethodFontColor #005500
+}
+skinparam interface {
+    BackgroundColor #E0F2F7
+    BorderColor #2196F3
+    ArrowColor #2196F3
+    AttributeFontColor #333333
+    MethodFontColor #005500
+}
+skinparam abstract {
+    BackgroundColor #F0F0F0
+    BorderColor #888888
+    ArrowColor #888888
+    AttributeFontColor #333333
+    MethodFontColor #005500
+}
+skinparam enum {
+    BackgroundColor #E8F5E9
+    BorderColor #4CAF50
+    ArrowColor #4CAF50
+    AttributeFontColor #333333
+    MethodFontColor #005500
+}
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #FFEB3B
+}
+
+' Interface for billing policy (Strategy Pattern)
+interface BillingPolicy {
+    + calculatePatientPortion(invoice : DischargeInvoice) : double
+    + calculateInsurancePortion(invoice : DischargeInvoice) : double
+    + calculateSubsidyPortion(invoice : DischargeInvoice) : double
+}
+
+' Abstract class for any chargeable item (Composite Pattern element)
+abstract class ChargeItem {
+    - description : String
+    # baseAmount : double ' Base cost before specific calculations
+    + {abstract} getNetCost() : double ' Returns the final cost for this item
+}
+
+' Concrete Billing Policies implementing the Strategy
+class InsuredBillingPolicy implements BillingPolicy {
+    - insuranceDetails : InsuranceDetails
+    + calculatePatientPortion(invoice : DischargeInvoice) : double
+    + calculateInsurancePortion(invoice : DischargeInvoice) : double
+    + calculateSubsidyPortion(invoice : DischargeInvoice) : double
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - programDetails : GovernmentProgramDetails
+    + calculatePatientPortion(invoice : DischargeInvoice) : double
+    + calculateInsurancePortion(invoice : DischargeInvoice) : double
+    + calculateSubsidyPortion(invoice : DischargeInvoice) : double
+}
+
+class SelfFundedBillingPolicy implements BillingPolicy {
+    + calculatePatientPortion(invoice : DischargeInvoice) : double
+    + calculateInsurancePortion(invoice : DischargeInvoice) : double
+    + calculateSubsidyPortion(invoice : DischargeInvoice) : double
+}
+
+' Concrete Charge Items
+class MedicalProcedure extends ChargeItem {
+    - procedureCode : String
+    - procedurePrice : double
+    + getNetCost() : double
+}
+
+class Medication extends ChargeItem {
+    - medicationName : String
+    - unitPrice : double
+    - quantity : int
+    + getNetCost() : double
+}
+
+class DiagnosticService extends ChargeItem {
+    - serviceCode : String
+    - servicePrice : double
+    + getNetCost() : double
+}
+
+class AccommodationCharge extends ChargeItem {
+    - roomNumber : String
+    - dailyRate : double
+    - numberOfDays : int
+    + getNetCost() : double
+}
+
+' Core Domain Classes
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - contactInfo : String
+    + getPatientCategory() : PatientCategory
+    + hasInsurance() : boolean
+    + hasGovernmentProgram() : boolean
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+class InsuranceDetails {
+    - policyNumber : String
+    - provider : String
+    - coveragePercentage : double
+    - deductible : double
+    - coPay : double
+    + applyCoverage(totalCharge : double) : double ' Returns amount covered by insurance for a given charge
+}
+
+class GovernmentProgramDetails {
+    - programName : String
+    - subsidyPercentage : double
+    - fixedSubsidyCap : double
+    + applySubsidy(totalCharge : double) : double ' Returns amount subsidized for a given charge
+}
+
+class DischargeInvoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalGrossAmount : double
+    - patientPortion : double
+    - insurancePortion : double
+    - subsidyPortion : double
+    - chargeItems : List<ChargeItem>
+    - appliedPolicy : BillingPolicy
+    - patient : Patient
+    + addChargeItem(item : ChargeItem) : void
+    + calculateAmounts() : void ' Orchestrates calculation using the applied policy
+    + getTotalGrossAmount() : double
+    + getPatientPortion() : double
+    + getInsurancePortion() : double
+    + getSubsidyPortion() : double
+}
+
+class BillingProcessor {
+    + generateDischargeInvoice(patient : Patient, items : List<ChargeItem>) : DischargeInvoice
+    - determineBillingPolicy(patient : Patient) : BillingPolicy
+}
+
+' Relationships
+Patient "1" -- "1" PatientCategory : "is a"
+Patient "1" --> "0..1" InsuranceDetails : "has"
+Patient "1" --> "0..1" GovernmentProgramDetails : "has"
+
+DischargeInvoice "1" *-- "1..*" ChargeItem : "includes"
+DischargeInvoice "1" -- "1" Patient : "for"
+DischargeInvoice "1" --> "1" BillingPolicy : "uses"
+
+InsuredBillingPolicy "1" -- "1" InsuranceDetails : "applies rules from"
+GovernmentBillingPolicy "1" -- "1" GovernmentProgramDetails : "applies rules from"
+
+BillingProcessor ..> BillingPolicy : "selects"
+BillingProcessor ..> DischargeInvoice : "creates"
+BillingProcessor ..> Patient : "processes"
+BillingProcessor ..> ChargeItem : "aggregates"
+
+' Explanatory Notes
+note "Strategy Pattern: Ensures billing logic is dynamically interchangeable and extensible for new policies." as N_Strategy
+BillingPolicy .. N_Strategy
+
+note "Composite Pattern: Manages heterogeneous cost sources (procedures, meds, etc.) uniformly." as N_Composite
+ChargeItem <|-- MedicalProcedure
+ChargeItem <|-- Medication
+ChargeItem <|-- DiagnosticService
+ChargeItem <|-- AccommodationCharge
+ChargeItem .. N_Composite
+
+note "BillingProcessor orchestrates the invoice generation, including policy selection and calculation." as N_Processor
+BillingProcessor .. N_Processor
+
+note "These classes encapsulate specific parameters for different patient categories, enabling policy customization." as N_Details
+InsuranceDetails .. N_Details
+GovernmentProgramDetails .. N_Details
+
+@enduml

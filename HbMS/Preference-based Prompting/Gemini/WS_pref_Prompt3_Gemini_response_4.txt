@@ -1,0 +1,183 @@
+@startuml
+' Set skin parameters for better readability and consistent style
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+    AttributeFontColor #333333
+    OperationFontColor #005500
+}
+skinparam interface {
+    BackgroundColor LightBlue
+    ArrowColor Black
+    BorderColor Black
+    AttributeFontColor #333333
+    OperationFontColor #005500
+}
+skinparam abstract {
+    BackgroundColor LightYellow
+    ArrowColor Black
+    BorderColor Black
+    AttributeFontColor #333333
+    OperationFontColor #005500
+}
+skinparam enum {
+    BackgroundColor LightGreen
+    ArrowColor Black
+    BorderColor Black
+    AttributeFontColor #333333
+}
+
+' Define enum for Patient Category to categorize patients for billing policies
+enum PatientCategoryType {
+    INSURED
+    GOVERNMENT
+    SELF_FUNDED
+}
+note "Defines the patient's financial responsibility type,\nwhich dictates the applicable billing policy." as N4
+PatientCategoryType .. N4
+
+' Patient Information
+class Patient {
+    - patientId : string
+    - name : string
+    - patientCategory : PatientCategoryType
+    --
+    + getPatientId() : string
+    + getName() : string
+    + getPatientCategory() : PatientCategoryType
+    + setInsuranceDetails(details : InsuranceDetails) : void
+    + getInsuranceDetails() : InsuranceDetails
+}
+
+' Details for insured patients, loosely coupled from Patient
+class InsuranceDetails {
+    - policyNumber : string
+    - providerName : string
+    - coveragePercentage : decimal
+    - deductibleAmount : decimal
+    --
+    + getPolicyNumber() : string
+    + getProviderName() : string
+    + getCoveragePercentage() : decimal
+    + getDeductibleAmount() : decimal
+}
+
+' A Patient may or may not have InsuranceDetails
+Patient "1" *-- "0..1" InsuranceDetails : has
+
+' Billable Items (Component of Composite Pattern for aggregating costs)
+abstract class BillableItem {
+    - description : string
+    - basePrice : decimal
+    --
+    + {abstract} calculateCost() : decimal
+    + getDescription() : string
+    + getBasePrice() : decimal
+}
+note "Abstract base for all services/goods that can be billed.\nEnsures uniform handling of diverse cost sources." as N2
+BillableItem .. N2
+
+class MedicalProcedure extends BillableItem {
+    - procedureCode : string
+    --
+    + calculateCost() : decimal
+    + getProcedureCode() : string
+}
+
+class Medication extends BillableItem {
+    - drugName : string
+    - dosage : string
+    --
+    + calculateCost() : decimal
+    + getDrugName() : string
+    + getDosage() : string
+}
+
+class DiagnosticService extends BillableItem {
+    - serviceType : string
+    --
+    + calculateCost() : decimal
+    + getServiceType() : string
+}
+
+class AccommodationCharge extends BillableItem {
+    - roomType : string
+    - dailyRate : decimal
+    - numberOfDays : int
+    --
+    + calculateCost() : decimal
+    + getRoomType() : string
+    + getDailyRate() : decimal
+    + getNumberOfDays() : int
+}
+
+' Billing Policies (Strategy Pattern for dynamic billing rules)
+interface IBillingPolicy {
+    + {abstract} applyPolicy(invoice : Invoice) : decimal
+}
+note "Strategy interface for different billing calculation rules.\nEnsures dynamic policy interchangeability at runtime." as N1
+IBillingPolicy .. N1
+
+class InsuredBillingPolicy implements IBillingPolicy {
+    - coPayAmount : decimal
+    - reimbursementThreshold : decimal
+    --
+    + InsuredBillingPolicy(coPay : decimal, threshold : decimal)
+    + applyPolicy(invoice : Invoice) : decimal
+    + getCoPayAmount() : decimal
+    + getReimbursementThreshold() : decimal
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidyPercentage : decimal
+    --
+    + GovernmentBillingPolicy(subsidy : decimal)
+    + applyPolicy(invoice : Invoice) : decimal
+    + getSubsidyPercentage() : decimal
+}
+
+class SelfFundedBillingPolicy implements IBillingPolicy {
+    --
+    + applyPolicy(invoice : Invoice) : decimal
+}
+
+' Invoice representing the patient's bill
+class Invoice {
+    - invoiceId : string
+    - patient : Patient
+    - items : List<BillableItem>
+    - invoiceDate : Date
+    - totalAmount : decimal
+    --
+    + Invoice(patient : Patient, date : Date)
+    + addItem(item : BillableItem) : void
+    + removeItem(item : BillableItem) : void
+    + calculateTotal(policy : IBillingPolicy) : void
+    + getInvoiceId() : string
+    + getPatient() : Patient
+    + getItems() : List<BillableItem>
+    + getInvoiceDate() : Date
+    + getTotalAmount() : decimal
+}
+
+' An Invoice is strongly composed of a Patient and BillableItems
+Invoice "1" *-- "1" Patient : for
+Invoice "1" *-- "1..*" BillableItem : includes
+
+' Orchestration Service for generating invoices and applying policies
+class BillingService {
+    --
+    + generateDischargeInvoice(patient : Patient, serviceItems : List<BillableItem>) : Invoice
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+note "Responsible for orchestrating the invoice generation process,\nincluding selecting and applying the correct billing policy." as N3
+BillingService .. N3
+
+' BillingService uses other components to fulfill its responsibility
+BillingService .> Patient : uses
+BillingService .> IBillingPolicy : determines & applies
+BillingService .> Invoice : creates & manages
+BillingService .> BillableItem : aggregates
+
+@enduml

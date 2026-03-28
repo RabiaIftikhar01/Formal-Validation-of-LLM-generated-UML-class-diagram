@@ -1,0 +1,200 @@
+```plantuml
+@startuml
+!define PRIMARY_COLOR #ADD1B2
+!define SECONDARY_COLOR #DDEEFF
+!define ACCENT_COLOR #FFCC88
+
+skinparam class {
+    BackgroundColor PRIMARY_COLOR
+    ArrowColor ACCENT_COLOR
+    BorderColor SECONDARY_COLOR
+    FontColor #333333
+}
+
+skinparam abstractClass {
+    BackgroundColor #F0F0F0
+    BorderColor #A0A0A0
+}
+
+skinparam interface {
+    BackgroundColor #FFFFBB
+    BorderColor #DDDD77
+}
+
+skinparam enum {
+    BackgroundColor #E0E0FF
+    BorderColor #B0B0DD
+}
+
+' Enums
+enum PatientType {
+    INSURED
+    GOVERNMENT_PROGRAM
+    SELF_PAY
+}
+
+' Patient and related information
+class Patient {
+    - patientId : string
+    - name : string
+    - dateOfBirth : Date
+    - patientType : PatientType
+    + getPatientId() : string
+    + getName() : string
+    + getPatientType() : PatientType
+    + assignInsurance(coverage : InsuranceCoverage) : void
+    + getInsuranceCoverage() : InsuranceCoverage
+}
+
+class InsuranceCoverage {
+    - policyNumber : string
+    - providerName : string
+    - reimbursementLimit : decimal
+    - coPaymentStructure : decimal
+    + getPolicyNumber() : string
+    + getProviderName() : string
+    + getReimbursementLimit() : decimal
+    + getCoPaymentStructure() : decimal
+}
+
+Patient "1" --> "0..1" InsuranceCoverage : has >
+
+' Treatment Record and associated charges
+class TreatmentRecord {
+    - recordId : string
+    - admissionDate : Date
+    - dischargeDate : Date
+    - description : string
+    + getRecordId() : string
+    + getAdmissionDate() : Date
+    + getDischargeDate() : Date
+    + getDescription() : string
+}
+
+Patient "1" --> "0..*" TreatmentRecord : undergoes >
+
+' Pricing Rules (Strategy Pattern)
+interface IPricingRule <<Strategy>> {
+    + {abstract} applyPricing(baseAmount : decimal) : decimal
+}
+
+class StandardPricingRule {
+    + applyPricing(baseAmount : decimal) : decimal
+}
+
+class DiscountPricingRule {
+    - discountPercentage : decimal
+    + applyPricing(baseAmount : decimal) : decimal
+}
+
+IPricingRule <|.. StandardPricingRule
+IPricingRule <|.. DiscountPricingRule
+
+' Charge Items (Composite pattern can be applied, but for simplicity, keeping as individual items)
+abstract class ChargeItem {
+    - description : string
+    - baseAmount : decimal
+    # pricingRule : IPricingRule
+    + {abstract} calculateAmount() : decimal
+    + getDescription() : string
+    + getBaseAmount() : decimal
+    + setPricingRule(rule : IPricingRule) : void
+}
+
+class ProcedureCharge {
+    - procedureCode : string
+    + calculateAmount() : decimal
+}
+
+class MedicationCharge {
+    - medicationName : string
+    - dosage : string
+    + calculateAmount() : decimal
+}
+
+class DiagnosticTestCharge {
+    - testCode : string
+    + calculateAmount() : decimal
+}
+
+class RoomOccupancyCharge {
+    - roomType : string
+    - dailyRate : decimal
+    - numberOfDays : int
+    + calculateAmount() : decimal
+}
+
+ChargeItem <|-- ProcedureCharge
+ChargeItem <|-- MedicationCharge
+ChargeItem <|-- DiagnosticTestCharge
+ChargeItem <|-- RoomOccupancyCharge
+
+ChargeItem "1" *-- "1" IPricingRule : uses >
+TreatmentRecord "1" --> "0..*" ChargeItem : generates >
+
+' Billing Policies (Strategy Pattern)
+interface IBillingPolicy <<Strategy>> {
+    + {abstract} applyPolicy(patient : Patient, chargeItems : List<ChargeItem>) : decimal
+}
+
+class InsuranceBillingPolicy {
+    + applyPolicy(patient : Patient, chargeItems : List<ChargeItem>) : decimal
+}
+
+class GovernmentProgramBillingPolicy {
+    + applyPolicy(patient : Patient, chargeItems : List<ChargeItem>) : decimal
+}
+
+class SelfPayBillingPolicy {
+    + applyPolicy(patient : Patient, chargeItems : List<ChargeItem>) : decimal
+}
+
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentProgramBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' Discharge Bill
+class DischargeBill {
+    - billId : string
+    - issueDate : Date
+    - patient : Patient
+    - chargeItems : List<ChargeItem>
+    - totalAmount : decimal
+    + addChargeItem(item : ChargeItem) : void
+    + calculateTotalAmount() : void
+    + getBillId() : string
+    + getIssueDate() : Date
+    + getTotalAmount() : decimal
+    + getPatient() : Patient
+}
+
+DischargeBill "1" *-- "*" ChargeItem : includes >
+DischargeBill "1" --> "1" Patient : for >
+
+' Billing Service (Context for Billing Policy Strategy)
+class BillingService {
+    - currentBillingPolicy : IBillingPolicy
+    + generateDischargeBill(patient : Patient, treatmentRecords : List<TreatmentRecord>) : DischargeBill
+    + setBillingPolicy(policy : IBillingPolicy) : void
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+BillingService "1" o-- "1" IBillingPolicy : applies >
+BillingService "1" --> "1" DischargeBill : creates >
+BillingService "1" --> "1" Patient : processes >
+
+' Notes for clarity and design patterns
+note "Strategy Pattern: Allows interchanging pricing logic at runtime without modifying ChargeItem." as N1
+IPricingRule .. N1
+
+note "Strategy Pattern: Enables flexible billing rules (insurance, government, self-pay) to be applied dynamically." as N2
+IBillingPolicy .. N2
+
+note "Loose coupling between BillingService and concrete billing policies." as N3
+BillingService .. N3
+
+note "ChargeItem acts as an abstract base for various types of charges." as N4
+ChargeItem .. N4
+
+@enduml
+```

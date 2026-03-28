@@ -1,0 +1,144 @@
+@startuml
+' Set skin parameters for better readability and a professional look
+skinparam classAttributeFontColor #424242
+skinparam classAttributeFontName Helvetica
+skinparam classAttributeFontSize 12
+skinparam classMethodFontColor #006064
+skinparam classMethodFontName Helvetica
+skinparam classMethodFontSize 12
+skinparam classBorderColor #4CAF50
+skinparam classHeaderBackgroundColor #E8F5E9
+skinparam classArrowColor #607D8B
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #FFCC80
+skinparam noteFontColor #5D4037
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 14
+
+' Title for the diagram
+title Hospital Discharge Billing System - Class Diagram
+
+' Abstract classes and Interfaces define the core contracts for extensibility
+abstract class Charge {
+    - id : String
+    - description : String
+    - baseAmount : double
+    + {abstract} getAmount() : double <<implementor>>
+}
+
+interface IBillingPolicy {
+    + {abstract} calculateFinalAmount(bill: Bill) : double <<implementor>>
+}
+
+' Concrete Charge types, each encapsulating its specific pricing logic
+class ProcedureCharge extends Charge {
+    - procedureCode : String
+    + ProcedureCharge(id: String, desc: String, baseAmount: double, code: String) <<manager>>
+    + getAmount() : double <<implementor>>
+}
+
+class MedicationCharge extends Charge {
+    - medicationName : String
+    - dosage : String
+    + MedicationCharge(id: String, desc: String, baseAmount: double, name: String, dosage: String) <<manager>>
+    + getAmount() : double <<implementor>>
+}
+
+class DiagnosticTestCharge extends Charge {
+    - testType : String
+    + DiagnosticTestCharge(id: String, desc: String, baseAmount: double, type: String) <<manager>>
+    + getAmount() : double <<implementor>>
+}
+
+class RoomCharge extends Charge {
+    - roomNumber : String
+    - dailyRate : double
+    - numberOfDays : int
+    + RoomCharge(id: String, desc: String, dailyRate: double, numberOfDays: int) <<manager>>
+    + getAmount() : double <<implementor>>
+}
+
+' Concrete Billing Policy implementations, representing different billing strategies
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - coverageRules : Map<String, Double>
+    - reimbursementLimits : Map<String, Double>
+    - coPaymentStructures : Map<String, Double>
+    + InsuranceBillingPolicy(rules: Map<String, Double>, limits: Map<String, Double>, copay: Map<String, Double>) <<manager>>
+    + calculateFinalAmount(bill: Bill) : double <<implementor>>
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidizedRates : Map<String, Double>
+    + GovernmentBillingPolicy(rates: Map<String, Double>) <<manager>>
+    + calculateFinalAmount(bill: Bill) : double <<implementor>>
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + SelfPayBillingPolicy() <<manager>>
+    + calculateFinalAmount(bill: Bill) : double <<implementor>>
+}
+
+' Core entities of the system
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - insuranceDetails : String ' Simplified: could be an InsuranceInfo object
+    - isGovernmentProgramEligible : boolean
+    + Patient(id: String, name: String, dob: Date, insurance: String, govEligible: boolean) <<manager>>
+    + getPatientId() : String <<access>>
+    + determineBillingPolicyType() : String <<helper>>
+}
+
+class Bill {
+    - billId : String
+    - billDate : Date
+    - totalAmount : double
+    - patient : Patient
+    - charges : List<Charge>
+    - billingPolicy : IBillingPolicy
+    + Bill(id: String, date: Date, patient: Patient) <<manager>>
+    + addCharge(charge: Charge) : void <<implementor>>
+    + setBillingPolicy(policy: IBillingPolicy) : void <<implementor>>
+    + calculateTotal() : double <<implementor>>
+    + getBillId() : String <<access>>
+    + getTotalAmount() : double <<access>>
+}
+
+' Service class to orchestrate the billing process, ensuring separation of concerns
+class BillingService {
+    + generateDischargeBill(patientId: String, chargeDetails: List<Map<String, Object>>) : Bill <<implementor>>
+    - createCharges(chargeDetails: List<Map<String, Object>>) : List<Charge> <<helper>>
+    - determineAndApplyPolicy(patient: Patient, bill: Bill) : void <<helper>>
+}
+
+' Relationships demonstrating system structure and interactions
+Patient "1" -- "0..*" Bill : generates
+Bill "1" *-- "1..*" Charge : contains
+Bill "1" --> "1" IBillingPolicy : uses >
+BillingService --> Patient : retrieves >
+BillingService ..> Bill : creates
+BillingService ..> IBillingPolicy : applies
+BillingService ..> Charge : creates
+
+' Notes for additional explanation and design principles
+note "Strategy Pattern: Allows billing logic to be interchangeable at runtime without modifying the Bill class." as N1
+IBillingPolicy .. N1
+InsuranceBillingPolicy .. N1
+GovernmentBillingPolicy .. N1
+SelfPayBillingPolicy .. N1
+
+note "Open/Closed Principle: New charge types can be added (e.g., TherapyCharge) without changing existing code." as N2
+Charge .. N2
+ProcedureCharge .. N2
+MedicationCharge .. N2
+DiagnosticTestCharge .. N2
+RoomCharge .. N2
+
+note "Loose Coupling: Bill depends on the IBillingPolicy interface, not concrete policy implementations, improving maintainability and testability." as N3
+Bill --> IBillingPolicy .. N3
+
+note "BillingService acts as a facade, orchestrating the bill generation process and encapsulating complex logic." as N4
+BillingService .. N4
+
+@enduml

@@ -1,0 +1,181 @@
+@startuml
+' Global settings for consistency
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+hide empty members
+
+' Notes for overall design principles
+note "Strategy Pattern for Billing Policies: Allows dynamic interchangeability of billing rules." as N1
+note "Factory Pattern for Policy Creation: Centralizes the creation logic for different billing policies." as N2
+note "Loose Coupling & High Cohesion: Ensures maintainability and extensibility by separating concerns." as N3
+
+' Patient Information Management
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - contactInfo : String
+    - patientCategory : PatientCategory
+    + getPatientId() : String
+    + getName() : String
+    + getPatientCategory() : PatientCategory
+    + getInsuranceInfo() : InsuranceInfo
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_PAY
+}
+
+class InsuranceInfo {
+    - policyNumber : String
+    - providerName : String
+    - coveragePercentage : double
+    - coPayAmount : double
+    - deductible : double
+    + getPolicyNumber() : String
+    + getProviderName() : String
+    + getCoveragePercentage() : double
+    + getCoPayAmount() : double
+    + getDeductible() : double
+}
+
+' Hospital Stay and Billable Items - Aggregates all services and charges for a patient's stay
+class HospitalStay {
+    - stayId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - billableItems : List<BillableItem>
+    + addBillableItem(item : BillableItem)
+    + getRawTotalCost() : double
+    + getPatient() : Patient
+    + getBillableItems() : List<BillableItem>
+}
+
+' Abstract base for all chargeable items
+abstract class BillableItem {
+    - itemId : String
+    - description : String
+    - basePrice : double
+    + {abstract} calculateBaseCost() : double
+    + getItemId() : String
+    + getDescription() : String
+    + getBasePrice() : double
+}
+
+' Concrete Billable Item types
+class MedicalProcedure extends BillableItem {
+    - procedureCode : String
+    + calculateBaseCost() : double
+}
+
+class PrescribedMedication extends BillableItem {
+    - drugName : String
+    - quantity : int
+    + calculateBaseCost() : double
+}
+
+class DiagnosticService extends BillableItem {
+    - serviceCode : String
+    + calculateBaseCost() : double
+}
+
+class AccommodationCharge extends BillableItem {
+    - roomType : String
+    - dailyRate : double
+    - days : int
+    + calculateBaseCost() : double
+}
+
+' Billing Policy (Strategy Pattern) - Defines the interface for different billing strategies
+interface IBillingPolicy {
+    + {abstract} calculateAdjustedCost(item : BillableItem, patient : Patient) : double
+    + {abstract} applyPolicy(hospitalStay : HospitalStay) : Invoice
+}
+
+' Concrete Billing Policies
+class InsuredBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedCost(item : BillableItem, patient : Patient) : double
+    + applyPolicy(hospitalStay : HospitalStay) : Invoice
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidyRate : double
+    + calculateAdjustedCost(item : BillableItem, patient : Patient) : double
+    + applyPolicy(hospitalStay : HospitalStay) : Invoice
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedCost(item : BillableItem, patient : Patient) : double
+    + applyPolicy(hospitalStay : HospitalStay) : Invoice
+}
+
+' Billing Orchestration - Coordinates the billing process
+class BillingPolicyFactory {
+    + {static} createPolicy(category : PatientCategory) : IBillingPolicy
+}
+
+class BillingService {
+    - policyFactory : BillingPolicyFactory
+    - currentPolicy : IBillingPolicy
+    + generateDischargeInvoice(hospitalStay : HospitalStay) : Invoice
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+' Invoice Generation - Represents the final bill document
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - dueDate : Date
+    - totalAmount : double
+    - patient : Patient
+    - hospitalStay : HospitalStay
+    - lineItems : List<InvoiceLineItem>
+    + getTotalAmount() : double
+    + addLineItem(item : InvoiceLineItem)
+    + printInvoice()
+}
+
+' Detailed line item on the invoice, showing original and adjusted costs
+class InvoiceLineItem {
+    - description : String
+    - originalCost : double
+    - adjustedCost : double
+    - policyNotes : String
+    + getDescription() : String
+    + getAdjustedCost() : double
+}
+
+' Relationships
+Patient "1" -- "0..*" HospitalStay : has >
+Patient "1" -- "1" PatientCategory : isCategorizedAs >
+Patient "0..1" -- "1" InsuranceInfo : has >
+
+HospitalStay "1" -- "1" Patient : for >
+HospitalStay "1" o-- "0..*" BillableItem : includes
+
+BillableItem <|-- MedicalProcedure
+BillableItem <|-- PrescribedMedication
+BillableItem <|-- DiagnosticService
+BillableItem <|-- AccommodationCharge
+
+IBillingPolicy <|.. InsuredBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+BillingPolicyFactory "1" ..> IBillingPolicy : creates >
+BillingService "1" -- "1" BillingPolicyFactory : uses >
+BillingService "1" -- "1" IBillingPolicy : <<uses>> currentPolicy >
+
+Invoice "1" -- "1" Patient : for >
+Invoice "1" -- "1" HospitalStay : basedOn >
+Invoice "1" o-- "0..*" InvoiceLineItem : comprises
+
+' Notes for specific classes/relationships
+note left of PatientCategory : Determines which billing policy to apply.
+note right of InsuranceInfo : Contains details used by InsuredBillingPolicy for calculating adjusted costs.
+note "The applyPolicy method iterates through BillableItems in HospitalStay,\napplies specific policy rules to each, and constructs an Invoice with InvoiceLineItems." as N_ApplyPolicyDesc
+IBillingPolicy::applyPolicy .. N_ApplyPolicyDesc
+@enduml

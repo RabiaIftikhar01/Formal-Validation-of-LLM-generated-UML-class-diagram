@@ -1,0 +1,187 @@
+@startuml
+' Global settings for consistency and readability
+skinparam classAttributeFontColor #000000
+skinparam classAttributeFontStrikeoutColor #FF0000
+skinparam classAttributeFontUnderlineColor #0000FF
+skinparam classAttributeFontSize 12
+skinparam classAttributeFontName Arial
+
+skinparam classMethodFontColor #000000
+skinparam classMethodFontStrikeoutColor #FF0000
+skinparam classMethodFontUnderlineColor #0000FF
+skinparam classMethodFontSize 12
+skinparam classMethodFontName Arial
+
+skinparam classFontSize 14
+skinparam classFontName Arial
+skinparam classBorderColor #000000
+skinparam classBackgroundColor #FFFFFF
+skinparam classStereotypeFontSize 10
+skinparam classStereotypeFontColor #888888
+
+skinparam arrowColor #111111
+skinparam arrowThickness 1
+skinparam arrowFontSize 11
+skinparam arrowFontName Arial
+
+' Title for the diagram
+title Hospital Discharge Billing System - Class Diagram
+
+' -----------------------------------------------------------
+' Core Entities: Patient, Invoice, Charge Items
+' -----------------------------------------------------------
+
+enum PatientType {
+    INSURED
+    GOVERNMENT
+    SELF_PAY
+}
+
+class Patient {
+    - patientId : String
+    - name : String
+    - patientType : PatientType
+    - insuranceProvider : String
+    - policyNumber : String
+    + getPatientId() : String
+    + getName() : String
+    + getPatientType() : PatientType
+    + getInsuranceProvider() : String
+    + getPolicyNumber() : String
+}
+
+abstract class ChargeItem {
+    - chargeId : String
+    - description : String
+    - chargeDate : Date
+    # rawAmount : decimal ' Protected for subclasses to calculate
+    + {abstract} getRawAmount() : decimal
+    + getDescription() : String
+    + getChargeDate() : Date
+}
+
+class ProcedureCharge extends ChargeItem {
+    - procedureCode : String
+    - unitCost : decimal
+    - quantity : int
+    + getRawAmount() : decimal
+}
+
+class MedicationCharge extends ChargeItem {
+    - drugCode : String
+    - unitPrice : decimal
+    - quantity : int
+    + getRawAmount() : decimal
+}
+
+class LabTestCharge extends ChargeItem {
+    - testCode : String
+    - testPrice : decimal
+    + getRawAmount() : decimal
+}
+
+class RoomCharge extends ChargeItem {
+    - roomNumber : String
+    - dailyRate : decimal
+    - daysStayed : int
+    + getRawAmount() : decimal
+}
+
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalAmount : decimal
+    - policyNameApplied : String ' For audit/logging
+    - patient : Patient
+    - charges : List<ChargeItem>
+    + addCharge(item : ChargeItem) : void
+    + calculateTotal(policy : IBillingPolicy) : void
+    + getTotalAmount() : decimal
+    + getPolicyNameApplied() : String
+}
+
+' -----------------------------------------------------------
+' Billing Policies (Strategy Pattern)
+' -----------------------------------------------------------
+
+interface IBillingPolicy <<Strategy>> {
+    + calculateAdjustedAmount(rawAmount : decimal, patient : Patient) : decimal
+    + getPolicyName() : String
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - coverageRules : Map<String, decimal> ' e.g., procedureCode -> coveragePercentage
+    + calculateAdjustedAmount(rawAmount : decimal, patient : Patient) : decimal
+    + getPolicyName() : String
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidizedRates : Map<String, decimal> ' e.g., procedureCode -> subsidizedPrice
+    + calculateAdjustedAmount(rawAmount : decimal, patient : Patient) : decimal
+    + getPolicyName() : String
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateAdjustedAmount(rawAmount : decimal, patient : Patient) : decimal
+    + getPolicyName() : String
+}
+
+' -----------------------------------------------------------
+' Services / Factories
+' -----------------------------------------------------------
+
+class BillingService {
+    - policyFactory : PolicyFactory
+    + generateDischargeInvoice(patient : Patient, chargeItems : List<ChargeItem>) : Invoice
+    + setPolicyFactory(factory : PolicyFactory) : void
+}
+
+class PolicyFactory {
+    - policies : Map<PatientType, IBillingPolicy>
+    + getPolicyForPatient(patientType : PatientType) : IBillingPolicy
+    + registerPolicy(type : PatientType, policy : IBillingPolicy) : void
+}
+
+' -----------------------------------------------------------
+' Relationships
+' -----------------------------------------------------------
+
+' Patient and PatientType
+Patient "1" --> "1" PatientType : has >
+
+' Invoice aggregates Charges and refers to a Patient
+Invoice "1" *-- "0..*" ChargeItem : contains >
+Invoice "1" --> "1" Patient : for >
+
+' BillingService uses PolicyFactory to get policies and creates Invoices
+BillingService "1" --> "1" PolicyFactory : uses >
+BillingService .> Invoice : creates
+
+' PolicyFactory provides IBillingPolicy implementations
+PolicyFactory "1" ..> "1" IBillingPolicy : provides >
+
+' Invoice uses IBillingPolicy during calculation (dependency)
+Invoice ..> IBillingPolicy : uses for calculation >
+
+' IBillingPolicy implementations
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' -----------------------------------------------------------
+' Explanatory Notes
+' -----------------------------------------------------------
+
+note "Strategy Pattern: Allows billing behavior to vary at runtime based on patient type without modifying core Invoice logic. New policies can be added easily." as N1
+IBillingPolicy .. N1
+
+note "This factory dynamically selects and provides the correct billing policy based on patient classification. It supports runtime policy updates and registration of new policies." as N2
+PolicyFactory .. N2
+
+note "Base class for all types of charges (clinical procedures, pharmaceuticals, lab diagnostics, room utilization). Facilitates extensibility for new charge types." as N3
+ChargeItem .. N3
+
+note "Orchestrates the invoice generation process by determining the appropriate billing policy and applying it to calculate the final amount." as N4
+BillingService .. N4
+
+@enduml

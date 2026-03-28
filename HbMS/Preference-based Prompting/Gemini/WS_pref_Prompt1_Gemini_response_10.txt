@@ -1,0 +1,172 @@
+@startuml
+' Global settings
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam shadowing false
+
+' Title for the diagram
+title Hospital Discharge Billing System - Class Diagram
+
+' Abstract classes and Interfaces for extensibility
+interface IBillingPolicy <<Strategy>> {
+    + {abstract} calculateBill(bill : DischargeBill, patient : Patient) : Decimal
+}
+
+abstract class ChargeItem {
+    - description : String
+    - baseAmount : Decimal
+    + {abstract} getAmount() : Decimal
+    + getDescription() : String
+}
+
+' Concrete ChargeItem implementations (Pricing Components)
+class ProcedureCharge extends ChargeItem {
+    - procedureCode : String
+    - unitCost : Decimal
+    - quantity : int
+    + ProcedureCharge(code : String, desc : String, cost : Decimal, qty : int)
+    + getAmount() : Decimal
+}
+
+class MedicationCharge extends ChargeItem {
+    - drugName : String
+    - dosage : String
+    - quantity : int
+    - unitPrice : Decimal
+    + MedicationCharge(name : String, desc : String, dose : String, qty : int, price : Decimal)
+    + getAmount() : Decimal
+}
+
+class DiagnosticTestCharge extends ChargeItem {
+    - testCode : String
+    - testFee : Decimal
+    + DiagnosticTestCharge(code : String, desc : String, fee : Decimal)
+    + getAmount() : Decimal
+}
+
+class RoomCharge extends ChargeItem {
+    - roomNumber : String
+    - dailyRate : Decimal
+    - daysStayed : int
+    + RoomCharge(roomNum : String, desc : String, rate : Decimal, days : int)
+    + getAmount() : Decimal
+}
+
+' Concrete BillingPolicy implementations (Interchangeable Billing Rules)
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - coverageRules : Map<String, Decimal>
+    - reimbursementLimits : Map<String, Decimal>
+    - coPaymentStructure : Map<String, Decimal>
+    + InsuranceBillingPolicy(rules : Map, limits : Map, coPay : Map)
+    + calculateBill(bill : DischargeBill, patient : Patient) : Decimal
+    - applyCoverageRules(charges : List<ChargeItem>, insurance : InsuranceDetails) : Decimal
+    - applyReimbursementLimits(amount : Decimal) : Decimal
+    - applyCoPayment(amount : Decimal) : Decimal
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidizedRates : Map<String, Decimal>
+    + GovernmentBillingPolicy(rates : Map)
+    + calculateBill(bill : DischargeBill, patient : Patient) : Decimal
+    - applySubsidizedRates(charges : List<ChargeItem>) : Decimal
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateBill(bill : DischargeBill, patient : Patient) : Decimal
+}
+
+' Patient and related details (Patient Records)
+class Patient {
+    - patientId : String
+    - name : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - patientType : PatientType <<enum>>
+    - insuranceDetails : InsuranceDetails
+    - governmentProgramDetails : GovernmentProgramDetails
+    + Patient(id : String, name : String, type : PatientType)
+    + getPatientId() : String
+    + getName() : String
+    + getPatientType() : PatientType
+    + getInsuranceDetails() : InsuranceDetails
+    + getGovernmentProgramDetails() : GovernmentProgramDetails
+    + setInsuranceDetails(details : InsuranceDetails)
+    + setGovernmentProgramDetails(details : GovernmentProgramDetails)
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_PROGRAM
+    SELF_PAY
+}
+
+class InsuranceDetails {
+    - policyNumber : String
+    - providerName : String
+    - coverageType : String
+    + InsuranceDetails(policyNum : String, provider : String, type : String)
+    + getPolicyNumber() : String
+    + getProviderName() : String
+    + getCoverageType() : String
+}
+
+class GovernmentProgramDetails {
+    - programId : String
+    - eligibilityStatus : String
+    + GovernmentProgramDetails(programId : String, status : String)
+    + getProgramId() : String
+    + getEligibilityStatus() : String
+}
+
+' Discharge Bill (Context for Billing Policies)
+class DischargeBill {
+    - billId : String
+    - issueDate : Date
+    - totalAmount : Decimal
+    - billingPolicy : IBillingPolicy
+    - chargeItems : List<ChargeItem>
+    + DischargeBill(billId : String, issueDate : Date)
+    + addChargeItem(item : ChargeItem) : void
+    + getChargeItems() : List<ChargeItem>
+    + setBillingPolicy(policy : IBillingPolicy) : void
+    + calculateAndSetTotal(patient : Patient) : void
+    + getTotalAmount() : Decimal
+    + getBillId() : String
+    + getIssueDate() : Date
+    + generateBillReport() : String
+}
+
+' Orchestration Service
+class BillingService {
+    + processDischargeBilling(patient : Patient) : DischargeBill
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+' Relationships
+Patient "1" --> "0..1" InsuranceDetails : has >
+Patient "1" --> "0..1" GovernmentProgramDetails : has >
+
+Patient "1" --> "0..1" DischargeBill : generates bill for >
+
+DischargeBill "1" *-- "0..*" ChargeItem : includes
+
+DischargeBill "1" o-- "1" IBillingPolicy : uses >
+
+BillingService "1" --> "1" Patient : processes >
+BillingService "1" ..> "1" DischargeBill : creates >
+BillingService "1" ..> "1" IBillingPolicy : selects and uses >
+
+' Explanatory Notes
+note "This design utilizes the Strategy Pattern\nto allow billing logic (policies) to be\ninterchangeable at runtime, enhancing\nextensibility and maintainability for\nevolving regulatory requirements." as N1
+IBillingPolicy .. N1
+
+note "Strong separation of concerns:\n- Patient: Handles patient records.\n- ChargeItem: Represents pricing components.\n- IBillingPolicy: Encapsulates billing policies.\nThis ensures loose coupling and makes the\nsystem adaptable to changes in each domain." as N2
+Patient .. N2
+ChargeItem .. N2
+IBillingPolicy .. N2
+
+note "The `BillingService` acts as the client\nthat orchestrates the billing process,\nselecting the appropriate `IBillingPolicy`\nbased on patient information and\ndelegating the calculation." as N3
+BillingService .. N3
+
+@enduml

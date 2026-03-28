@@ -1,0 +1,143 @@
+@startuml
+' Naming convention: PascalCase for classes, camelCase for attributes/methods.
+' Access specifiers: + public, - private, # protected
+
+' Core Entities
+class Patient {
+    - patientId : String
+    - name : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - patientClassification : PatientClassification
+    + getPatientId() : String
+    + getName() : String
+    + getPatientClassification() : PatientClassification
+}
+
+enum PatientClassification {
+    INSURED
+    GOVERNMENT
+    SELFPAY
+}
+
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - finalAmount : double
+    - billingEntries : List<BillingEntry>
+    + Invoice(invoiceId : String, issueDate : Date)
+    + addEntry(entry : BillingEntry) : void
+    + calculateBaseTotal() : double
+    + setFinalAmount(amount : double) : void
+    + getInvoiceId() : String
+    + getFinalAmount() : double
+    + getBillingEntries() : List<BillingEntry>
+}
+
+' Billing Entry Hierarchy (Pricing Elements - Composite Pattern)
+abstract class BillingEntry {
+    - description : String
+    - baseAmount : double ' Initial amount for this entry before any policy
+    + {abstract} calculateBaseCharge() : double
+    + getDescription() : String
+    + getBaseAmount() : double
+    + setBaseAmount(amount : double) : void
+}
+
+class ClinicalProcedureCharge extends BillingEntry {
+    - procedureCode : String
+    - unitCost : double
+    - quantity : int
+    + ClinicalProcedureCharge(desc : String, code : String, cost : double, qty : int)
+    + calculateBaseCharge() : double
+}
+
+class PharmaceuticalCharge extends BillingEntry {
+    - drugCode : String
+    - unitPrice : double
+    - quantity : int
+    + PharmaceuticalCharge(desc : String, code : String, price : double, qty : int)
+    + calculateBaseCharge() : double
+}
+
+class LaboratoryDiagnosticCharge extends BillingEntry {
+    - testCode : String
+    - testPrice : double
+    + LaboratoryDiagnosticCharge(desc : String, code : String, price : double)
+    + calculateBaseCharge() : double
+}
+
+class RoomUtilizationCharge extends BillingEntry {
+    - roomNumber : String
+    - dailyRate : double
+    - daysStayed : int
+    + RoomUtilizationCharge(desc : String, room : String, rate : double, days : int)
+    + calculateBaseCharge() : double
+}
+
+' Billing Policy Hierarchy (Strategy Pattern)
+interface BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : double
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : double
+    - getAdjustedCharge(baseCharge : double, coverage : InsuranceCoverage, procedureCode : String) : double
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : double
+    - applySubsidizedRate(baseCharge : double) : double
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : double
+}
+
+' Insurance Details
+class InsuranceCoverage {
+    - providerName : String
+    - policyNumber : String
+    - coverageDetails : Map<String, Double> ' e.g., procedureCode -> coveragePercentage
+    - reimbursementLimits : Map<String, Double> ' e.g., procedureCode -> limit
+    + getCoveragePercentage(procedureCode : String) : double
+    + getReimbursementLimit(procedureCode : String) : double
+}
+
+' Orchestration Service
+class DischargeBillingService {
+    + generateDischargeBill(patient : Patient, rawBillingEntries : List<BillingEntry>) : Invoice
+    - getBillingPolicy(patientClassification : PatientClassification) : BillingPolicy
+}
+
+' Relationships
+Patient "1" --> "0..1" InsuranceCoverage : has
+Invoice "1" *-- "1..*" BillingEntry : contains
+
+DischargeBillingService ..> Invoice : creates
+DischargeBillingService ..> Patient : uses
+DischargeBillingService ..> BillingPolicy : determines and uses
+
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+BillingEntry <|-- ClinicalProcedureCharge
+BillingEntry <|-- PharmaceuticalCharge
+BillingEntry <|-- LaboratoryDiagnosticCharge
+BillingEntry <|-- RoomUtilizationCharge
+
+InsuranceBillingPolicy ..> InsuranceCoverage : applies rules based on
+
+' Notes for clarity
+note "Strategy Pattern for flexible billing rules" as N1
+BillingPolicy .. N1
+
+note "Composite pattern for billable items" as N2
+BillingEntry .. N2
+
+note "PatientClassification determines which BillingPolicy to use" as N3
+Patient .. N3
+DischargeBillingService .. N3
+
+@enduml

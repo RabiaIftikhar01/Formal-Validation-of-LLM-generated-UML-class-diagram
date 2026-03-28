@@ -1,0 +1,174 @@
+@startuml
+' Global settings for clarity and consistency
+skinparam classAttributeFontColor #333333
+skinparam classAttributeFontSize 12
+skinparam classMethodFontColor #333333
+skinparam classMethodFontSize 12
+skinparam classFontColor #333333
+skinparam classFontSize 14
+skinparam interfaceFontColor #333333
+skinparam interfaceFontSize 14
+skinparam arrowFontColor #333333
+skinparam arrowFontSize 12
+skinparam shadowing false
+hide circle
+
+' ----------------------------------------------------
+' Patient and Classification
+' ----------------------------------------------------
+enum PatientClassificationType {
+    INSURANCE
+    GOVERNMENT
+    SELFPAY
+}
+
+class Patient {
+    - patientId : String
+    - name : String
+    - classificationType : PatientClassificationType
+    --
+    + getPatientId() : String
+    + getName() : String
+    + getClassificationType() : PatientClassificationType
+}
+
+Patient "1" --> "1" PatientClassificationType : has
+
+' ----------------------------------------------------
+' Charge Items Hierarchy - Represents billable services
+' ----------------------------------------------------
+abstract class ChargeItem {
+    - description : String
+    - baseAmount : double
+    --
+    + getDescription() : String
+    + getBaseAmount() : double
+    + {abstract} calculateItemCost() : double
+}
+
+class ProcedureCharge {
+    - procedureCode : String
+    --
+    + ProcedureCharge(description: String, baseAmount: double, procedureCode: String)
+    + getProcedureCode() : String
+    + calculateItemCost() : double
+}
+
+class MedicationCharge {
+    - medicationName : String
+    - quantity : int
+    --
+    + MedicationCharge(description: String, baseAmount: double, medicationName: String, quantity: int)
+    + getMedicationName() : String
+    + getQuantity() : int
+    + calculateItemCost() : double
+}
+
+class LabCharge {
+    - labTestType : String
+    --
+    + LabCharge(description: String, baseAmount: double, labTestType: String)
+    + getLabTestType() : String
+    + calculateItemCost() : double
+}
+
+class RoomCharge {
+    - roomType : String
+    - durationInDays : int
+    --
+    + RoomCharge(description: String, baseAmount: double, roomType: String, durationInDays: int)
+    + getRoomType() : String
+    + getDurationInDays() : int
+    + calculateItemCost() : double
+}
+
+ChargeItem <|-- ProcedureCharge
+ChargeItem <|-- MedicationCharge
+ChargeItem <|-- LabCharge
+ChargeItem <|-- RoomCharge
+
+note bottom of ChargeItem
+  Base for all billable services,
+  enabling polymorphic handling and
+  item-specific cost calculation.
+end note
+
+' ----------------------------------------------------
+' Billing Policy Strategy - For runtime replaceable policies
+' ----------------------------------------------------
+interface IBillingPolicy {
+    + calculateFinalBillAmount(patient: Patient, chargeItems: List<ChargeItem>) : double
+}
+
+class InsuranceBillingPolicy {
+    - coverageRules : Map<String, double>
+    - coPaymentPercentage : double
+    --
+    + InsuranceBillingPolicy(coverageRules: Map<String, double>, coPaymentPercentage: double)
+    + calculateFinalBillAmount(patient: Patient, chargeItems: List<ChargeItem>) : double
+}
+
+class GovernmentBillingPolicy {
+    - subsidySchedule : Map<String, double>
+    --
+    + GovernmentBillingPolicy(subsidySchedule: Map<String, double>)
+    + calculateFinalBillAmount(patient: Patient, chargeItems: List<ChargeItem>) : double
+}
+
+class SelfPayBillingPolicy {
+    + calculateFinalBillAmount(patient: Patient, chargeItems: List<ChargeItem>) : double
+}
+
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+note bottom of IBillingPolicy
+  Strategy Pattern:
+  Allows billing logic to be swapped
+  at runtime without structural redesign.
+end note
+
+' ----------------------------------------------------
+' Bill and Billing Service - Orchestration
+' ----------------------------------------------------
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - totalAmount : double
+    - patient : Patient
+    - chargeItems : List<ChargeItem>
+    --
+    + Bill(billId: String, patient: Patient, chargeItems: List<ChargeItem>, totalAmount: double)
+    + getBillId() : String
+    + getIssueDate() : Date
+    + getTotalAmount() : double
+    + getPatient() : Patient
+    + getChargeItems() : List<ChargeItem>
+}
+
+class BillingService {
+    - policyRegistry : Map<PatientClassificationType, IBillingPolicy>
+    --
+    + BillingService()
+    + registerPolicy(type: PatientClassificationType, policy: IBillingPolicy) : void
+    + generateDischargeBill(patient: Patient, chargeItems: List<ChargeItem>) : Bill
+    - getPolicyForPatient(patient: Patient) : IBillingPolicy
+}
+
+' Relationships
+Bill "1" *-- "1..*" ChargeItem : contains
+Bill "1" -- "1" Patient : for
+
+BillingService "1" o-- "*" IBillingPolicy : manages policies
+BillingService .> Patient : uses
+BillingService .> ChargeItem : uses
+BillingService .> Bill : creates
+
+note left of BillingService
+  Orchestrates bill generation by selecting
+  and applying the appropriate billing policy
+  based on patient classification.
+end note
+
+@enduml

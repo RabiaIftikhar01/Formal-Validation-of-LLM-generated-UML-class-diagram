@@ -1,0 +1,133 @@
+@startuml
+!theme plain
+
+' Define the patient categories as an enumeration
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+' Class representing a patient in the hospital system
+class Patient {
+    - patientId : String
+    - name : String
+    - patientCategory : PatientCategory
+    - insuranceDetails : InsuranceDetails
+    + getPatientCategory() : PatientCategory
+    + getInsuranceDetails() : InsuranceDetails
+    + getPatientId() : String
+}
+
+' Class to hold specific details for insured patients
+class InsuranceDetails {
+    - policyNumber : String
+    - providerName : String
+    - coveragePlan : String
+    - reimbursementThreshold : Double
+    - coPayAmount : Double
+    + getCoveragePlan() : String
+    + getReimbursementThreshold() : Double
+    + getCoPayAmount() : Double
+    + getPolicyNumber() : String
+}
+
+' Abstract class for any service or item that can be billed
+abstract class BillableService {
+    - description : String
+    - baseCost : Double
+    + {abstract} calculateBaseCost() : Double
+    + getDescription() : String
+    + getBaseCost() : Double
+}
+
+' Concrete implementations of BillableService
+class MedicalProcedure extends BillableService {
+    + calculateBaseCost() : Double
+}
+
+class Medication extends BillableService {
+    + calculateBaseCost() : Double
+}
+
+class DiagnosticService extends BillableService {
+    + calculateBaseCost() : Double
+}
+
+class AccommodationCharge extends BillableService {
+    + calculateBaseCost() : Double
+}
+
+class ConsultationFee extends BillableService {
+    + calculateBaseCost() : Double
+}
+
+' Class to group services provided during a hospital stay (for in-patients)
+class HospitalStay {
+    - admissionDate : Date
+    - dischargeDate : Date
+    - servicesProvided : List<BillableService>
+    + addService(service : BillableService) : void
+    + getTotalBaseCost() : Double
+    + getServices() : List<BillableService>
+}
+
+' Interface for different billing policy strategies
+interface BillingPolicy {
+    + applyPolicy(billItems : List<BillableService>, patient : Patient) : Double
+}
+
+' Concrete billing policy for insured patients
+class InsuredBillingPolicy implements BillingPolicy {
+    + applyPolicy(billItems : List<BillableService>, patient : Patient) : Double
+}
+
+' Concrete billing policy for government beneficiaries
+class GovernmentBillingPolicy implements BillingPolicy {
+    + applyPolicy(billItems : List<BillableService>, patient : Patient) : Double
+}
+
+' Concrete billing policy for self-funded patients
+class SelfPayBillingPolicy implements BillingPolicy {
+    + applyPolicy(billItems : List<BillableService>, patient : Patient) : Double
+}
+
+' Class representing the final discharge invoice
+class DischargeInvoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalAmount : Double
+    - patient : Patient
+    - billItems : List<BillableService>
+    + addBillItem(service : BillableService) : void
+    + calculateFinalAmount(policy : BillingPolicy) : void
+    + getInvoiceDetails() : String
+    + getTotalAmount() : Double
+}
+
+' Central orchestrator for the billing process
+class BillingEngine {
+    + generateDischargeInvoice(patient : Patient, services : List<BillableService>) : DischargeInvoice
+    - determinePolicy(patient : Patient) : BillingPolicy
+}
+
+' Relationships between classes
+
+' Patient relationships
+Patient "1" --> "1" PatientCategory : isCategorizedAs
+Patient "1" --> "0..1" InsuranceDetails : has
+
+' HospitalStay and BillableService aggregation
+HospitalStay "1" o-- "0..*" BillableService : provides
+
+' DischargeInvoice relationships
+DischargeInvoice "1" --> "1" Patient : for
+DischargeInvoice "1" o-- "1..*" BillableService : includes
+
+' BillingEngine dependencies (uses these classes/interfaces)
+BillingEngine ..> BillingPolicy : uses >
+BillingEngine ..> Patient : processes
+BillingEngine ..> BillableService : processes
+BillingEngine ..> DischargeInvoice : creates
+
+@enduml

@@ -1,0 +1,206 @@
+@startuml
+' Set a consistent style for better readability
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Gray
+}
+skinparam interface {
+    BackgroundColor LightBlue
+    ArrowColor Black
+    BorderColor Gray
+}
+skinparam abstract {
+    BackgroundColor LightYellow
+    ArrowColor Black
+    BorderColor Gray
+}
+
+' ---------------------------------------
+' Patient Data Domain
+' Encapsulates patient-specific information and insurance details.
+' ---------------------------------------
+class Patient {
+    - patientId : String
+    - name : String
+    - patientType : PatientType
+    + getPatientId() : String
+    + getName() : String
+    + getPatientType() : PatientType
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+class InsuranceDetail {
+    - policyNumber : String
+    - providerName : String
+    + getPolicyNumber() : String
+    + getProviderName() : String
+}
+
+class InsuranceCoverage {
+    - coverageId : String
+    - policyName : String
+    + getCoverageId() : String
+    + getPolicyName() : String
+}
+
+Patient "1" --> "0..1" InsuranceDetail : has
+InsuranceDetail "1" --> "1" InsuranceCoverage : covers
+
+' ---------------------------------------
+' Pricing Elements Domain
+' Defines how individual billable items are priced and how schedules
+' for reimbursements and subsidies are managed.
+' ---------------------------------------
+abstract class BillableItem {
+    - description : String
+    - quantity : int
+    - unitPrice : Double
+    + {abstract} calculateBaseCost() : Double
+    + getDescription() : String
+    + getQuantity() : int
+    + getUnitPrice() : Double
+}
+
+class ProcedureItem extends BillableItem {
+    - procedureCode : String
+    + calculateBaseCost() : Double
+    + getProcedureCode() : String
+}
+
+class MedicationItem extends BillableItem {
+    - medicationCode : String
+    + calculateBaseCost() : Double
+    + getMedicationCode() : String
+}
+
+class LabServiceItem extends BillableItem {
+    - serviceCode : String
+    + calculateBaseCost() : Double
+    + getServiceCode() : String
+}
+
+class RoomChargeItem extends BillableItem {
+    - roomNumber : String
+    - daysStayed : int
+    + calculateBaseCost() : Double
+    + getRoomNumber() : String
+    + getDaysStayed() : int
+}
+
+class ReimbursementSchedule {
+    - scheduleId : String
+    - rules : Map<String, Double> ' e.g., itemCode -> coveragePercentage
+    + getScheduleId() : String
+    + getReimbursementRate(itemCode : String) : Double
+}
+
+class SubsidySchedule {
+    - scheduleId : String
+    - subsidizedRates : Map<String, Double> ' e.g., itemCode -> subsidizedPrice
+    + getScheduleId() : String
+    + getSubsidizedPrice(itemCode : String, originalPrice : Double) : Double
+}
+
+InsuranceCoverage "1" --> "1" ReimbursementSchedule : uses
+
+' ---------------------------------------
+' Billing Policies Domain (Strategy Pattern)
+' Defines the interchangeable billing algorithms based on patient classification.
+' ---------------------------------------
+interface IBillingPolicy {
+    + {abstract} calculateFinalAmount(hospitalStay : HospitalStay) : Double
+    + {abstract} generateInvoiceDetails(hospitalStay : HospitalStay) : List<InvoiceLineItem>
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+    + calculateFinalAmount(hospitalStay : HospitalStay) : Double
+    + generateInvoiceDetails(hospitalStay : HospitalStay) : List<InvoiceLineItem>
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    + calculateFinalAmount(hospitalStay : HospitalStay) : Double
+    + generateInvoiceDetails(hospitalStay : HospitalStay) : List<InvoiceLineItem>
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculateFinalAmount(hospitalStay : HospitalStay) : Double
+    + generateInvoiceDetails(hospitalStay : HospitalStay) : List<InvoiceLineItem>
+}
+
+GovernmentBillingPolicy "1" --> "1" SubsidySchedule : applies
+
+' ---------------------------------------
+' Billing Orchestration & Invoice Generation
+' Manages the patient's stay and orchestrates the billing process
+' using the selected billing policy to create an invoice.
+' ---------------------------------------
+class HospitalStay {
+    - stayId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    + getStayId() : String
+    + getAdmissionDate() : Date
+    + getDischargeDate() : Date
+    + addBillableItem(item : BillableItem)
+    + getBillableItems() : List<BillableItem>
+}
+
+HospitalStay "1" --> "1" Patient : for
+
+HospitalStay "1" o-- "0..*" BillableItem : includes >
+
+class InvoiceGenerator {
+    - currentBillingPolicy : IBillingPolicy
+    + setBillingPolicy(policy : IBillingPolicy)
+    + generateInvoice(hospitalStay : HospitalStay) : Invoice
+    - determinePolicy(patient : Patient) : IBillingPolicy
+}
+
+InvoiceGenerator "1" --> "1" IBillingPolicy : uses >
+
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalAmount : Double
+    + getInvoiceId() : String
+    + getIssueDate() : Date
+    + getTotalAmount() : Double
+    + addLineItem(item : InvoiceLineItem)
+    + getLineItems() : List<InvoiceLineItem>
+}
+
+class InvoiceLineItem {
+    - description : String
+    - baseAmount : Double
+    - adjustedAmount : Double
+    - policyAdjustmentDetails : String
+    + getDescription() : String
+    + getBaseAmount() : Double
+    + getAdjustedAmount() : Double
+    + getPolicyAdjustmentDetails() : String
+}
+
+InvoiceGenerator "1" --> "1" Invoice : creates >
+Invoice "1" --> "1" Patient : for
+Invoice "1" *-- "1..*" InvoiceLineItem : contains
+
+' Note about the Strategy Pattern
+note "The Strategy Pattern allows billing behavior\n(Insurance, Government, Self-Pay) to be\nswapped at runtime without modifying\nInvoiceGenerator, ensuring extensibility and adherence\nto dynamic regulatory changes." as StrategyNote
+IBillingPolicy .. StrategyNote
+
+' Note about BillableItem hierarchy
+note "Abstract BillableItem and its concrete\nsubclasses encapsulate specific pricing logic\nfor different service types (clinical, pharma, lab, room),\nsupporting diverse pricing requirements." as BillableItemNote
+BillableItem .. BillableItemNote
+
+' Note about separation of concerns
+note "Clear separation of Patient Data,\nPricing Elements, and Billing Policies\nensures maintainability and extensibility\nfor evolving regulatory demands and audit constraints." as SeparationNote
+Patient .. SeparationNote
+BillableItem .. SeparationNote
+IBillingPolicy .. SeparationNote
+@enduml

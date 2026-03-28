@@ -1,0 +1,168 @@
+@startuml
+' Global settings for better readability
+skinparam classAttributeIconSize 0
+hide empty members
+
+' Enums for clear type definitions
+enum BillingType {
+    INSURANCE
+    GOVERNMENT
+    SELF_PAY
+}
+
+' Core entities
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - admissionDate : Date
+    - dischargeDate : Date
+    + getPatientInfo() : String
+}
+
+class BillingDetails {
+    - billingType : BillingType
+    - policyNumber : String
+    + getBillingType() : BillingType
+    + getPolicyNumber() : String
+    + getInsuranceCoverage() : InsuranceCoverage
+}
+
+class InsuranceCoverage {
+    - providerName : String
+    - policyNumber : String
+    - coverageLimit : Decimal
+    - coPayPercentage : Decimal
+    - deductible : Decimal
+    + getCoverageDetails() : String
+    + applyCoverage(cost : Decimal) : Decimal
+}
+
+' Abstract base class for all billable items (Composite Pattern element)
+abstract class Charge {
+    # chargeId : String
+    # description : String
+    # baseAmount : Decimal
+    + getChargeId() : String
+    + getDescription() : String
+    + getBaseAmount() : Decimal
+    + {abstract} calculateFinalAmount() : Decimal
+}
+
+' Concrete charge types
+class ProcedureCharge extends Charge {
+    - procedureCode : String
+    + calculateFinalAmount() : Decimal
+}
+
+class MedicationCharge extends Charge {
+    - medicationName : String
+    - quantity : Int
+    + calculateFinalAmount() : Decimal
+}
+
+class DiagnosticTestCharge extends Charge {
+    - testName : String
+    + calculateFinalAmount() : Decimal
+}
+
+class RoomCharge extends Charge {
+    - roomNumber : String
+    - dailyRate : Decimal
+    - numberOfDays : Int
+    + calculateFinalAmount() : Decimal
+}
+
+' The generated bill document
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - patientId : String
+    - totalAmount : Decimal
+    - charges : List<Charge>
+    + addCharge(charge : Charge) : void
+    + removeCharge(charge : Charge) : void
+    + calculateSubTotal() : Decimal
+    + setTotalAmount(amount : Decimal) : void
+    + getBillDetails() : String
+}
+
+' Strategy Pattern for billing policies
+interface IBillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : Decimal
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : Decimal
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidizedRateFactor : Decimal
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : Decimal
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculatePatientResponsibility(bill : Bill, patient : Patient) : Decimal
+}
+
+' The service orchestrating the billing process (Context for Strategy)
+class BillingService {
+    - currentPolicy : IBillingPolicy
+    + setBillingPolicy(policy : IBillingPolicy) : void
+    + generateDischargeBill(patient : Patient, initialCharges : List<Charge>) : Bill
+    - determineBillingPolicy(patient : Patient) : IBillingPolicy
+}
+
+' Relationships
+
+' Patient has BillingDetails (Composition: BillingDetails is integral to a Patient's billing profile)
+Patient "1" *-- "1" BillingDetails : has >
+
+' BillingDetails may reference InsuranceCoverage if applicable
+BillingDetails "1" --> "0..1" InsuranceCoverage : references >
+
+' A Bill comprises multiple Charges (Composition: Charges are part of a Bill)
+Bill "1" *-- "0..*" Charge : comprises >
+
+' Inheritance for concrete Charge types
+Charge <|-- ProcedureCharge
+Charge <|-- MedicationCharge
+Charge <|-- DiagnosticTestCharge
+Charge <|-- RoomCharge
+
+' Implementation of the Billing Policy Strategy
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' BillingService uses an IBillingPolicy strategy
+BillingService "1" --> "1" IBillingPolicy : uses >
+
+' BillingService creates Bill instances
+BillingService .> Bill : creates >
+
+' BillingService needs to access Patient and their BillingDetails to generate a bill
+BillingService --> Patient : accesses >
+BillingService --> BillingDetails : accesses >
+
+' IBillingPolicy implementations need access to Bill and Patient for calculation
+IBillingPolicy --> Bill : processes >
+IBillingPolicy --> Patient : for >
+
+' InsuranceBillingPolicy specifically needs InsuranceCoverage details
+InsuranceBillingPolicy --> InsuranceCoverage : applies >
+
+' Notes for clarity and design pattern explanation
+note "Strategy Pattern: Allows interchangeable billing policies at runtime." as N_Strategy
+IBillingPolicy .. N_Strategy
+
+note "Abstract base class for all billable items." as N_Charge
+Charge .. N_Charge
+
+note "Encapsulates patient's specific billing profile and coverage type." as N_BillingDetails
+BillingDetails .. N_BillingDetails
+
+note "Orchestrates bill generation, applying the determined billing policy." as N_BillingService
+BillingService .. N_BillingService
+
+@enduml

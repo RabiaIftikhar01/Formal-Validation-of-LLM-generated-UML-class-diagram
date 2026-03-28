@@ -1,0 +1,160 @@
+@startuml
+
+!define LIGHTBLUE #ADD8E6
+!define LIGHTGREEN #90EE90
+!define LIGHTYELLOW #FFFFE0
+!define LIGHTPINK #FFB6C1
+
+skinparam class {
+    BackgroundColor LIGHTBLUE
+    ArrowColor Black
+    BorderColor Black
+}
+
+' Patient and Hospital Stay Management
+package "Patient & Stay Management" LIGHTGREEN {
+    class Patient {
+        - patientId: String
+        - name: String
+        - patientCategory: PatientCategory <<enum>>
+        - insurancePolicyRef: String
+        --
+        + getPatientId(): String
+        + getName(): String
+        + getPatientCategory(): PatientCategory
+        + getInsurancePolicyRef(): String
+    }
+
+    enum PatientCategory {
+        INSURED
+        GOVERNMENT
+        SELF_FUNDED
+    }
+
+    class HospitalStay {
+        - stayId: String
+        - admissionDate: Date
+        - dischargeDate: Date
+        --
+        + addCharge(item: BillableItem): void
+        + getCharges(): List<BillableItem>
+        + getAdmissionDate(): Date
+        + getDischargeDate(): Date
+    }
+
+    Patient "1" -- "0..1" HospitalStay : has >
+    HospitalStay "1" o-- "0..*" BillableItem : includes >
+}
+
+' Core Billing Components
+package "Billing Components" LIGHTYELLOW {
+    abstract class BillableItem {
+        # description: String
+        # baseCost: double
+        --
+        + getDescription(): String
+        + getBaseCost(): double
+        + {abstract} calculateBaseCost(): double
+    }
+
+    class MedicalProcedure extends BillableItem {
+        - procedureCode: String
+        - procedureName: String
+        --
+        + calculateBaseCost(): double
+    }
+
+    class Medication extends BillableItem {
+        - drugName: String
+        - dosage: String
+        --
+        + calculateBaseCost(): double
+    }
+
+    class DiagnosticService extends BillableItem {
+        - serviceCode: String
+        - serviceType: String
+        --
+        + calculateBaseCost(): double
+    }
+
+    class AccommodationCharge extends BillableItem {
+        - roomType: String
+        - dailyRate: double
+        - numberOfDays: int
+        --
+        + calculateBaseCost(): double
+    }
+
+    class DischargeInvoice {
+        - invoiceId: String
+        - issueDate: Date
+        - totalAmount: double
+        - patientId: String
+        - itemizedCosts: Map<String, Double>
+        --
+        + addItemCost(description: String, cost: double): void
+        + getTotalAmount(): double
+        + getInvoiceId(): String
+    }
+}
+
+' Billing Policies (Strategy Pattern)
+package "Billing Policies" LIGHTPINK {
+    interface BillingPolicy <<Strategy>> {
+        + {abstract} calculateAdjustedCost(item: BillableItem, patient: Patient): double
+    }
+
+    class InsuredPatientBillingPolicy implements BillingPolicy {
+        - insurancePolicy: InsurancePolicy
+        --
+        + calculateAdjustedCost(item: BillableItem, patient: Patient): double
+    }
+
+    class GovernmentPatientBillingPolicy implements BillingPolicy {
+        - subsidyRates: Map<String, Double>
+        --
+        + calculateAdjustedCost(item: BillableItem, patient: Patient): double
+    }
+
+    class SelfFundedPatientBillingPolicy implements BillingPolicy {
+        --
+        + calculateAdjustedCost(item: BillableItem, patient: Patient): double
+    }
+
+    class InsurancePolicy {
+        - policyNumber: String
+        - providerName: String
+        - coverageLimits: Map<String, Double>
+        - coPayPercentage: double
+        --
+        + getPolicyNumber(): String
+        + getCoverageLimit(itemDescription: String): double
+        + getCoPayPercentage(): double
+    }
+
+    InsuredPatientBillingPolicy "1" -- "1" InsurancePolicy : uses >
+}
+
+' Central Billing Service
+package "Billing Service" LIGHTBLUE {
+    class BillingService {
+        --
+        + generateDischargeInvoice(patient: Patient, stay: HospitalStay): DischargeInvoice
+        - determineBillingPolicy(patient: Patient): BillingPolicy
+    }
+}
+
+' Relationships from Billing Service to other packages/classes
+BillingService .up.> BillingPolicy : uses
+BillingService .up.> Patient : interacts with
+BillingService .up.> HospitalStay : interacts with
+BillingService .up.> DischargeInvoice : creates
+
+' Notes for clarification
+note top of BillingService : Orchestrates invoice generation \nand applies billing policies dynamically.
+note top of BillingPolicy : Strategy interface defining how \ncosts are adjusted based on patient category.
+note top of BillableItem : Abstract base for any chargeable \nhospital service or item.
+note top of Patient : Holds patient demographic and \nbilling-relevant categorization.
+
+@enduml

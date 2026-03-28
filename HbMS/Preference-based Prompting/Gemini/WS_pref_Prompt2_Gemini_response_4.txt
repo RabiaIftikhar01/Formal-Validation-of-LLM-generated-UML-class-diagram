@@ -1,0 +1,243 @@
+@startuml
+' Global settings for consistency and readability
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam class {
+    BackgroundColor White
+    BorderColor #2A6496
+    ArrowColor #2A6496
+    ArrowFontColor #2A6496
+}
+skinparam interface {
+    BackgroundColor #FFFDD0
+    BorderColor #DAA520
+}
+skinparam abstract {
+    BackgroundColor #E6E6FA
+    BorderColor #8A2BE2
+}
+skinparam enum {
+    BackgroundColor #F0FFF0
+    BorderColor #3CB371
+}
+skinparam package {
+    BackgroundColor #F8F8FF
+    BorderColor #6A5ACD
+    FontColor #6A5ACD
+}
+
+' -----------------------------------------------------
+' Package: Core Billing Entities
+' Encapsulates fundamental classes related to patients, bills, and bill line items.
+' -----------------------------------------------------
+package "Core Billing Entities" {
+  class Patient {
+    - patientId: String
+    - name: String
+    - patientType: PatientType
+    - insuranceDetails: InsuranceDetails [0..1]
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): PatientType
+    + getInsuranceDetails(): InsuranceDetails
+  }
+
+  enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+  }
+
+  class DischargeBill {
+    - billId: String
+    - issueDate: Date
+    - totalAmount: Double = 0.0
+    - status: BillStatus = PENDING
+    - patient: Patient
+    - billingEntries: List<BillingEntry>
+    + addEntry(entry: BillingEntry): void
+    + calculateTotal(): void
+    + getBillDetails(): String
+    + setStatus(status: BillStatus): void
+  }
+
+  enum BillStatus {
+    PENDING
+    PAID
+    PARTIAL
+    CANCELLED
+  }
+
+  class BillingEntry {
+    - entryId: String
+    - description: String
+    - quantity: int
+    - unitPrice: Double
+    - finalCharge: Double
+    - service: Service
+    + getAmount(): Double
+    + setFinalCharge(amount: Double): void
+    + getService(): Service
+  }
+
+  ' Relationships within Core Billing Entities
+  Patient "1" --> "0..*" DischargeBill : generates / isFor
+  DischargeBill "1" o-- "1..*" BillingEntry : contains >
+  BillingEntry "1" --> "1" Service : appliesTo
+  Patient ..> PatientType : "classifies"
+  DischargeBill ..> BillStatus : "has"
+}
+
+' -----------------------------------------------------
+' Package: Services and Pricing
+' Defines the hierarchy of billable services and their categorization.
+' -----------------------------------------------------
+package "Services and Pricing" {
+  abstract class Service {
+    - serviceId: String
+    - name: String
+    - basePrice: Double
+    - serviceType: ServiceType
+    + getBasePrice(): Double
+    + getServiceType(): ServiceType
+  }
+
+  enum ServiceType {
+    CLINICAL_PROCEDURE
+    PHARMACEUTICAL
+    LABORATORY_DIAGNOSTIC
+    ROOM_UTILIZATION
+    CONSULTATION
+  }
+
+  class ClinicalProcedure extends Service {
+    - procedureCode: String
+  }
+
+  class Pharmaceutical extends Service {
+    - drugCode: String
+    - dosage: String
+  }
+
+  class LaboratoryDiagnostic extends Service {
+    - testCode: String
+  }
+
+  class RoomUtilization extends Service {
+    - roomNumber: String
+    - dailyRate: Double
+  }
+
+  Service ..> ServiceType : "categorizes"
+}
+
+' -----------------------------------------------------
+' Package: Billing Policies (Strategy Pattern)
+' Implements the Strategy pattern to allow flexible and runtime-replaceable billing logic.
+' -----------------------------------------------------
+package "Billing Policies" {
+  interface BillingPolicy {
+    + applyPolicy(bill: DischargeBill): void
+  }
+
+  class InsuranceBillingPolicy implements BillingPolicy {
+    + applyPolicy(bill: DischargeBill): void
+    - calculatePatientShare(entry: BillingEntry, patient: Patient, coverage: CoveragePlan): Double
+  }
+
+  class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidySchedule: SubsidySchedule
+    + applyPolicy(bill: DischargeBill): void
+    - calculatePatientShare(entry: BillingEntry, patient: Patient, subsidy: Double): Double
+  }
+
+  class SelfPayBillingPolicy implements BillingPolicy {
+    + applyPolicy(bill: DischargeBill): void
+    - calculatePatientShare(entry: BillingEntry, patient: Patient): Double
+  }
+
+  ' Relationships for policies
+  GovernmentBillingPolicy "1" --> "1" SubsidySchedule : uses >
+}
+
+' -----------------------------------------------------
+' Package: Policy Configuration Data
+' Stores configurable data that drives billing policies, allowing dynamic updates.
+' -----------------------------------------------------
+package "Policy Configuration Data" {
+  class InsuranceDetails {
+    - policyNumber: String
+    - provider: String
+    - coveragePlans: List<CoveragePlan>
+    + getCoveragePlan(serviceType: ServiceType): CoveragePlan
+  }
+
+  class CoveragePlan {
+    - serviceType: ServiceType
+    - coveragePercentage: Double
+    - deductible: Double
+    - coPayment: Double
+    - maxReimbursement: Double
+    + getNetCoverage(serviceCost: Double): Double
+  }
+
+  class SubsidySchedule {
+    - programName: String
+    - subsidizedRates: Map<ServiceType, Double>
+    + getSubsidizedRate(serviceType: ServiceType): Double
+  }
+
+  ' Relationships within Policy Configuration Data
+  Patient "1" --> "0..1" InsuranceDetails : has
+  InsuranceDetails "1" o-- "1..*" CoveragePlan : defines
+  CoveragePlan ..> ServiceType : "appliesTo"
+  SubsidySchedule ..> ServiceType : "configuresFor"
+}
+
+' -----------------------------------------------------
+' Package: Orchestration and Factories
+' Manages the overall billing process and the creation of appropriate billing strategies.
+' -----------------------------------------------------
+package "Orchestration" {
+  class BillingPolicyFactory {
+    + getPolicy(patientType: PatientType): BillingPolicy
+  }
+
+  class BillingService {
+    - billingPolicyFactory: BillingPolicyFactory
+    + generateDischargeBill(patient: Patient, patientServices: List<Service>): DischargeBill
+  }
+
+  ' Relationships for orchestration
+  BillingService "1" --> "1" BillingPolicyFactory : uses >
+  BillingPolicyFactory ..> BillingPolicy : "creates"
+  BillingPolicyFactory ..> PatientType : "determinesPolicyBy"
+}
+
+' -----------------------------------------------------
+' General Notes for the Diagram
+' -----------------------------------------------------
+note "Strategy Pattern for flexible billing rules:\nAllows policies to be replaced at runtime\nwithout modifying core billing logic." as N_Strategy
+BillingPolicy <|-- InsuranceBillingPolicy
+BillingPolicy <|-- GovernmentBillingPolicy
+BillingPolicy <|-- SelfPayBillingPolicy
+N_Strategy .down. BillingPolicy
+
+note "Factory for runtime policy selection:\nDecouples the client (BillingService)\nfrom concrete policy implementations." as N_Factory
+BillingPolicyFactory .up. BillingPolicy
+N_Factory .down. BillingPolicyFactory
+
+note "Composition for bill items:\nDischargeBill aggregates BillingEntry objects,\nrepresenting individual charges." as N_Composition
+DischargeBill o-- BillingEntry
+N_Composition .down. BillingEntry
+
+note "Hierarchy of billable services:\nProvides a unified interface (Service)\nfor various types of treatments/charges." as N_Hierarchy
+Service <|-- ClinicalProcedure
+Service <|-- Pharmaceutical
+Service <|-- LaboratoryDiagnostic
+Service <|-- RoomUtilization
+N_Hierarchy .down. Service
+
+@enduml

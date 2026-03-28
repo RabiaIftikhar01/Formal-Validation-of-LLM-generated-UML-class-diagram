@@ -1,0 +1,158 @@
+@startuml
+!theme mars
+
+' Notes to explain key design choices and patterns
+note "Strategy Pattern: Allows dynamic interchangeability of billing policies at runtime, promoting extensibility and maintainability." as N1
+note "Loose Coupling: Achieved by separating patient data, service charges, and billing policies, reducing dependencies and improving reusability." as N2
+note "Extensibility: New patient categories, service types, or billing policies can be added with minimal impact on existing code." as N3
+note "BigDecimal is used for all monetary values to ensure precision in financial calculations." as N4
+
+' Patient and related information
+class Patient {
+    - patientId : String
+    - name : String
+    - dateOfBirth : Date
+    - patientCategory : PatientCategory
+    + getPatientCategory() : PatientCategory
+    + getInsuranceCoverage() : InsuranceCoverage
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+class InsuranceCoverage {
+    - policyNumber : String
+    - providerName : String
+    - deductible : BigDecimal
+    - coPayPercentage : BigDecimal
+    - coverageLimits : Map<String, BigDecimal>
+    + getDeductible() : BigDecimal
+    + getCoPayPercentage() : BigDecimal
+    + getCoverageLimit(chargeType : String) : BigDecimal
+}
+
+' Hospital Stay and associated charges
+class HospitalStay {
+    - stayId : String
+    - admissionDate : Date
+    - dischargeDate : Date
+    - stayType : StayType
+    + addServiceCharge(charge : ServiceCharge) : void
+    + getServiceCharges() : List<ServiceCharge>
+    + getStayType() : StayType
+}
+
+enum StayType {
+    INPATIENT
+    OUTPATIENT
+}
+
+' Abstract base for all billable services and items
+abstract class ServiceCharge {
+    - chargeId : String
+    - description : String
+    - basePrice : BigDecimal
+    - quantity : int
+    + {abstract} getChargeType() : String
+    + getBasePrice() : BigDecimal
+    + getQuantity() : int
+    + calculateRawCost() : BigDecimal
+}
+
+class MedicalProcedure extends ServiceCharge {
+    - procedureCode : String
+    + getChargeType() : String
+}
+
+class Medication extends ServiceCharge {
+    - drugName : String
+    - dosage : String
+    + getChargeType() : String
+}
+
+class DiagnosticService extends ServiceCharge {
+    - testName : String
+    + getChargeType() : String
+}
+
+class AccommodationCharge extends ServiceCharge {
+    - roomType : String
+    - dailyRate : BigDecimal
+    - numberOfDays : int
+    + getChargeType() : String
+    + calculateRawCost() : BigDecimal
+}
+
+' Discharge Invoice and Billing Policy (Strategy Pattern)
+class DischargeInvoice {
+    - invoiceId : String
+    - issueDate : Date
+    - totalAmountDue : BigDecimal
+    - status : InvoiceStatus
+    - hospitalStay : HospitalStay
+    - billingPolicy : BillingPolicy
+    + DischargeInvoice(stay : HospitalStay, policy : BillingPolicy)
+    + calculateTotalAmount() : BigDecimal
+    + generateInvoiceDetails() : String
+    + updateStatus(newStatus : InvoiceStatus) : void
+}
+
+enum InvoiceStatus {
+    PENDING
+    CALCULATED
+    APPROVED
+    PAID
+    CANCELLED
+}
+
+interface BillingPolicy {
+    + calculateAdjustedCharge(charge : ServiceCharge, patient : Patient) : BigDecimal
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + calculateAdjustedCharge(charge : ServiceCharge, patient : Patient) : BigDecimal
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    + calculateAdjustedCharge(charge : ServiceCharge, patient : Patient) : BigDecimal
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateAdjustedCharge(charge : ServiceCharge, patient : Patient) : BigDecimal
+}
+
+' Relationships
+Patient "1" -- "0..*" HospitalStay : has > patientStays
+HospitalStay "1" -- "0..*" ServiceCharge : includes > charges
+
+DischargeInvoice "1" --> "1" HospitalStay : generatedFor
+DischargeInvoice "1" --> "1" BillingPolicy : applies > billingPolicy
+
+Patient "1" -- "0..1" InsuranceCoverage : has > coverageDetails
+InsuranceBillingPolicy .> InsuranceCoverage : uses > forDetails
+
+' Enum relationships
+Patient --> PatientCategory
+HospitalStay --> StayType
+DischargeInvoice --> InvoiceStatus
+
+' Inheritance and Implementation
+ServiceCharge <|-- MedicalProcedure
+ServiceCharge <|-- Medication
+ServiceCharge <|-- DiagnosticService
+ServiceCharge <|-- AccommodationCharge
+
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' Position notes
+N1 .. BillingPolicy
+N2 .. DischargeInvoice
+N3 .. ServiceCharge
+N4 .. ServiceCharge
+
+@enduml

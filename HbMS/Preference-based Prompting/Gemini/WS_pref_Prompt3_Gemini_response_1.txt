@@ -1,0 +1,159 @@
+@startuml
+' Global settings for clarity and style
+skinparam classAttributeIconSize 0
+skinparam classBorderColor #A80036
+skinparam classArrowColor #A80036
+skinparam interfaceBorderColor #A80036
+skinparam abstractBorderColor #A80036
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+
+' Define Interfaces and Enums
+interface BillableItem {
+    + getCost() : double
+    + getDescription() : String
+    + getItemType() : String
+}
+
+interface BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : void
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+' Concrete Billable Items (Cost Sources)
+class MedicalProcedure implements BillableItem {
+    - procedureCode : String
+    - name : String
+    - baseCost : double
+    + getCost() : double
+    + getDescription() : String
+    + getItemType() : String
+}
+
+class Medication implements BillableItem {
+    - medicationId : String
+    - name : String
+    - unitCost : double
+    - quantity : int
+    + getCost() : double
+    + getDescription() : String
+    + getItemType() : String
+}
+
+class DiagnosticService implements BillableItem {
+    - serviceCode : String
+    - name : String
+    - fee : double
+    + getCost() : double
+    + getDescription() : String
+    + getItemType() : String
+}
+
+class AccommodationCharge implements BillableItem {
+    - roomType : String
+    - dailyRate : double
+    - daysStayed : int
+    + getCost() : double
+    + getDescription() : String
+    + getItemType() : String
+}
+
+' Concrete Billing Policies (Strategies)
+class InsuredBillingPolicy implements BillingPolicy {
+    - coverageRules : Map<String, Double>
+    - coPayAmount : double
+    + applyPolicy(invoice : Invoice, patient : Patient) : void
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidizedRates : Map<String, Double>
+    + applyPolicy(invoice : Invoice, patient : Patient) : void
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + applyPolicy(invoice : Invoice, patient : Patient) : void
+}
+
+' Core Entities
+class Patient {
+    - patientId : String
+    - name : String
+    - patientCategory : PatientCategory
+    + getPatientCategory() : PatientCategory
+    + getInsuranceDetails() : InsuranceDetails
+    + getGovernmentProgramDetails() : GovernmentProgramDetails
+}
+
+class InsuranceDetails {
+    - policyNumber : String
+    - providerName : String
+    - coverageType : String
+    - reimbursementThresholds : Map<String, Double>
+    - coPayArrangement : double
+    + getPolicyNumber() : String
+}
+
+class GovernmentProgramDetails {
+    - programId : String
+    - programName : String
+    - subsidyValues : Map<String, Double>
+    + getProgramId() : String
+}
+
+class Invoice {
+    - invoiceId : String
+    - issueDate : Date
+    - patient : Patient
+    - billableItems : List<BillableItem>
+    - rawTotalAmount : double
+    - adjustedTotalAmount : double
+    + Invoice(patient : Patient)
+    + addItem(item : BillableItem) : void
+    + calculateRawTotal() : void
+    + setAdjustedTotal(amount : double) : void
+    + getAdjustedTotal() : double
+    + getRawTotal() : double
+    + getInvoiceDetails() : String
+}
+
+' Orchestration/Service Layer
+class BillingService {
+    - policySelector : PolicySelector
+    + BillingService(selector : PolicySelector)
+    + generateDischargeInvoice(patient : Patient, items : List<BillableItem>) : Invoice
+}
+
+class PolicySelector {
+    + selectPolicy(patient : Patient) : BillingPolicy
+}
+
+' Relationships
+Patient "1" -- "0..1" InsuranceDetails : has >
+Patient "1" -- "0..1" GovernmentProgramDetails : has >
+
+Invoice "1" -- "1" Patient : for >
+Invoice "1" *-- "1..*" BillableItem : contains
+
+BillingService "1" --> "1" PolicySelector : uses >
+PolicySelector ..> BillingPolicy : selects
+
+BillingService "1" ..> Invoice : creates
+BillingService "1" ..> Patient : interacts with
+BillingService "1" ..> BillableItem : processes
+
+BillingPolicy ..> Invoice : modifies
+BillingPolicy ..> Patient : reads
+
+' Notes for clarification
+note "Strategy Pattern: billing logic encapsulated\nand interchangeable at runtime." as N1
+BillingPolicy .. N1
+
+note "PolicySelector determines the correct\nBillingPolicy based on Patient's category\nand associated details." as N3
+PolicySelector .. N3
+
+@enduml

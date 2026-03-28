@@ -1,0 +1,153 @@
+@startuml
+' Naming convention: Singular nouns, PascalCase for classes, camelCase for attributes/methods.
+' Attributes are private by default, operations public unless specified.
+
+' Enums for patient classification
+enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+' Patient Data and associated entities
+class Patient {
+    - id : String
+    - name : String
+    - contactInfo : String
+    - patientType : PatientType
+    + getPatientType() : PatientType
+    + getInsurancePlan() : InsurancePlan
+}
+
+class InsurancePlan {
+    - planId : String
+    - providerName : String
+    - coverageDetails : String
+    - reimbursementCeilings : Map<String, Double>
+    - coPaymentModel : Map<String, Double>
+    + getCoverageDetails() : String
+    + getReimbursementCeiling(category : String) : Double
+    + getCoPayment(category : String) : Double
+}
+
+class SubsidySchedule {
+    - scheduleId : String
+    - description : String
+    - subsidyRates : Map<String, Double>
+    + getSubsidyRate(category : String) : Double
+}
+
+' Billable Items (Pricing Elements)
+abstract class BillableItem {
+    - itemId : String
+    - description : String
+    + {abstract} getBaseAmount() : double
+    + getItemId() : String
+    + getDescription() : String
+}
+
+class ClinicalProcedure extends BillableItem {
+    - procedureCode : String
+    - unitCost : double
+    + getBaseAmount() : double
+}
+
+class Pharmaceutical extends BillableItem {
+    - drugCode : String
+    - unitPrice : double
+    + getBaseAmount() : double
+}
+
+class LaboratoryDiagnostic extends BillableItem {
+    - testCode : String
+    - unitCost : double
+    + getBaseAmount() : double
+}
+
+class RoomUtilization extends BillableItem {
+    - roomType : String
+    - dailyRate : double
+    - daysOccupied : int
+    + getBaseAmount() : double
+}
+
+' Billing Policy (Strategy Pattern for runtime replaceable behavior)
+interface BillingPolicy {
+    + calculatePatientDue(bill : Bill, patient : Patient) : double
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + calculatePatientDue(bill : Bill, patient : Patient) : double
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    + calculatePatientDue(bill : Bill, patient : Patient) : double
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculatePatientDue(bill : Bill, patient : Patient) : double
+}
+
+' Billing Core (Invoice and its components)
+class Bill {
+    - billId : String
+    - issueDate : Date
+    - totalGrossAmount : double
+    - totalPatientDue : double
+    - entries : List<BillEntry>
+    + addEntry(entry : BillEntry) : void
+    + calculateGrossTotal() : void
+    + setTotalPatientDue(amount : double) : void
+    + getTotalGrossAmount() : double
+    + getEntries() : List<BillEntry>
+}
+
+class BillEntry {
+    - entryId : String
+    - quantity : int
+    - unitPriceAtBilling : double
+    - lineGrossAmount : double
+    + calculateLineGrossAmount() : void
+    + getLineGrossAmount() : double
+    + getQuantity() : int
+    + getUnitPriceAtBilling() : double
+}
+
+' Orchestrator for billing process
+class BillGenerator {
+    - currentBillingPolicy : BillingPolicy
+    + setBillingPolicy(policy : BillingPolicy) : void
+    + generateDischargeBill(patient : Patient, billableItems : List<BillableItem>) : Bill
+    - determineBillingPolicy(patient : Patient) : BillingPolicy
+}
+
+' Relationships
+
+Patient "1" --> "1" PatientType : hasType >
+Patient "1" -- "0..1" InsurancePlan : hasPlan >
+
+Bill "1" -- "1" Patient : issuedFor >
+Bill "1" *-- "*" BillEntry : contains
+
+BillEntry "1" --> "1" BillableItem : references >
+
+BillGenerator "1" o-- "1" BillingPolicy : uses
+
+InsuranceBillingPolicy "1" --> "0..1" InsurancePlan : appliesRulesFrom >
+GovernmentBillingPolicy "1" --> "1" SubsidySchedule : appliesRatesFrom >
+
+BillGenerator .> Bill : generates
+BillGenerator .> BillingPolicy : <<selects>>
+
+note "Strategy Pattern: BillingPolicy allows runtime-replaceable billing behavior based on patient classification. \nThis ensures extensibility for new policies without structural redesign." as N1
+BillingPolicy <|.. N1
+InsuranceBillingPolicy <|.. N1
+GovernmentBillingPolicy <|.. N1
+SelfPayBillingPolicy <|.. N1
+
+note "Clear separation of concerns: Patient data, Billable Items (pricing), and Billing Policies are distinct." as N2
+Patient <|.. N2
+BillableItem <|.. N2
+BillingPolicy <|.. N2
+
+@enduml

@@ -1,0 +1,199 @@
+@startuml
+!theme mars
+
+' Set up packages for better organization and separation of concerns
+package "Patient Management" {
+    class Patient {
+        - patientId : String
+        - name : String
+        - patientCategory : PatientCategory
+        - insuranceDetails : InsuranceDetails
+        + getPatientId() : String
+        + getName() : String
+        + getPatientCategory() : PatientCategory
+        + getInsuranceDetails() : InsuranceDetails
+    }
+
+    enum PatientCategory {
+        INSURED
+        GOVERNMENT_BENEFICIARY
+        SELF_FUNDED
+    }
+
+    class InsuranceDetails {
+        - policyNumber : String
+        - provider : String
+        - coveragePercentage : double
+        - deductible : double
+        + getPolicyNumber() : String
+        + getProvider() : String
+        + getCoveragePercentage() : double
+        + getDeductible() : double
+    }
+}
+
+package "Hospital Services" {
+    class HospitalStay {
+        - stayId : String
+        - admissionDate : Date
+        - dischargeDate : Date
+        - billableItems : List<BillableItem>
+        + addBillableItem(item : BillableItem)
+        + getBillableItems() : List<BillableItem>
+        + getStayDurationInDays() : int
+    }
+
+    abstract class BillableItem {
+        - description : String
+        - quantity : int
+        + {abstract} calculateBaseCost() : double
+        + getDescription() : String
+        + getQuantity() : int
+    }
+
+    class MedicalProcedure extends BillableItem {
+        - procedureCode : String
+        - unitPrice : double
+        + calculateBaseCost() : double
+    }
+
+    class Medication extends BillableItem {
+        - drugName : String
+        - unitPrice : double
+        + calculateBaseCost() : double
+    }
+
+    class DiagnosticService extends BillableItem {
+        - serviceCode : String
+        - servicePrice : double
+        + calculateBaseCost() : double
+    }
+
+    class AccommodationCharge extends BillableItem {
+        - roomType : String
+        - dailyRate : double
+        - daysCharged : int ' Number of days for this specific charge
+        + calculateBaseCost() : double
+    }
+}
+
+package "Billing System" {
+    ' Billing Policy (Strategy Pattern) - Core for dynamic billing rules
+    interface BillingPolicy {
+        + applyPolicy(stay : HospitalStay, patient : Patient) : List<InvoiceLineItem>
+    }
+
+    class InsuredPatientBillingPolicy implements BillingPolicy {
+        - insuranceRules : InsuranceRulesConfig
+        + applyPolicy(stay : HospitalStay, patient : Patient) : List<InvoiceLineItem>
+    }
+
+    class GovernmentBeneficiaryBillingPolicy implements BillingPolicy {
+        - subsidyRates : SubsidyRatesConfig
+        + applyPolicy(stay : HospitalStay, patient : Patient) : List<InvoiceLineItem>
+    }
+
+    class SelfFundedPatientBillingPolicy implements BillingPolicy {
+        + applyPolicy(stay : HospitalStay, patient : Patient) : List<InvoiceLineItem>
+    }
+
+    ' Configuration for Policies - Allows dynamic adjustments without code changes
+    class InsuranceRulesConfig {
+        - coverageMap : Map<String, Double>
+        - coPayMap : Map<String, Double>
+        - annualDeductibleLimit : double
+        + getCoverage(itemCode : String) : double
+        + getCoPay(itemCode : String) : double
+        + getAnnualDeductibleLimit() : double
+    }
+
+    class SubsidyRatesConfig {
+        - itemSubsidyMap : Map<String, Double>
+        - flatSubsidyAmount : double
+        + getSubsidy(itemCode : String) : double
+        + getFlatSubsidyAmount() : double
+    }
+
+    ' Invoice Generation (Context) - Orchestrates the billing process
+    class InvoiceGenerator {
+        - billingPolicy : BillingPolicy
+        + setBillingPolicy(policy : BillingPolicy)
+        + generateInvoice(patient : Patient, stay : HospitalStay) : Invoice
+        - determinePolicy(patient : Patient) : BillingPolicy
+    }
+
+    ' Final Invoice - The output of the billing process
+    class Invoice {
+        - invoiceId : String
+        - patientId : String
+        - hospitalStayId : String
+        - issueDate : Date
+        - totalAmount : double
+        - lineItems : List<InvoiceLineItem>
+        + getInvoiceDetails() : String
+        + getTotalAmount() : double
+    }
+
+    ' Invoice Line Item - Represents a single billed item on the invoice after policy application
+    class InvoiceLineItem {
+        - description : String
+        - quantity : int
+        - originalUnitPrice : double ' Price before policy
+        - billedUnitPrice : double ' Price after policy application (e.g., with co-pay, subsidy)
+        - billedAmount : double    ' Total billed for this line item (billedUnitPrice * quantity)
+        + getDetails() : String
+    }
+}
+
+' Relationships between classes across packages
+
+Patient "1" -- "0..*" HospitalStay : has
+Patient "1" -- "1" PatientCategory : classifies
+Patient "1" -- "0..1" InsuranceDetails : "has"
+
+HospitalStay "1" *-- "0..*" BillableItem : "includes"
+' Composition: Billable items are part of a hospital stay and typically don't exist independently in this context.
+
+BillableItem <|-- MedicalProcedure
+BillableItem <|-- Medication
+BillableItem <|-- DiagnosticService
+BillableItem <|-- AccommodationCharge
+' Inheritance: Specific billable items extend the abstract BillableItem.
+
+BillingPolicy <|.. InsuredPatientBillingPolicy
+BillingPolicy <|.. GovernmentBeneficiaryBillingPolicy
+BillingPolicy <|.. SelfFundedPatientBillingPolicy
+' Realization: Concrete billing policies implement the BillingPolicy interface (Strategy pattern).
+
+InsuredPatientBillingPolicy "1" -- "1" InsuranceRulesConfig : "uses"
+GovernmentBeneficiaryBillingPolicy "1" -- "1" SubsidyRatesConfig : "uses"
+' Association: Policies use configuration objects to apply specific rules.
+
+InvoiceGenerator "1" o-- "1" BillingPolicy : "applies"
+' Aggregation: InvoiceGenerator holds a reference to a BillingPolicy (the strategy context).
+InvoiceGenerator "1" ..> "1" Patient : "reads patient data"
+InvoiceGenerator "1" ..> "1" HospitalStay : "processes stay items"
+InvoiceGenerator "1" ..> "1" Invoice : "creates"
+' Dependency: InvoiceGenerator interacts with Patient and HospitalStay to generate an Invoice.
+
+Invoice "1" *-- "0..*" InvoiceLineItem : "details"
+' Composition: InvoiceLineItems are integral parts of an Invoice.
+
+' Explanatory Notes for clarity and design justifications
+note "Strategy Pattern: Allows dynamic interchange of billing logic (policies) at runtime based on patient category without modifying the core InvoiceGenerator." as N_Strategy
+BillingPolicy .. N_Strategy
+
+note "Composite Pattern: The BillableItem hierarchy (MedicalProcedure, Medication, etc.) allows uniform treatment and aggregation of various service types within a HospitalStay." as N_Composite
+HospitalStay .. N_Composite
+BillableItem .. N_Composite
+
+note "Separation of Concerns: Patient data, service pricing (BillableItem.calculateBaseCost), and billing policies (BillingPolicy) are strictly separated into distinct modules. This enhances extensibility, maintainability, and testability." as N_Separation
+Patient .. N_Separation
+BillableItem .. N_Separation
+BillingPolicy .. N_Separation
+
+note "Configuration classes (InsuranceRulesConfig, SubsidyRatesConfig) enable policy adjustments (e.g., coverage, subsidy rates) to be integrated dynamically in response to regulatory directives and contract revisions without triggering structural redesign (Open/Closed Principle)." as N_Config
+InsuranceRulesConfig .. N_Config
+SubsidyRatesConfig .. N_Config
+
+@enduml
