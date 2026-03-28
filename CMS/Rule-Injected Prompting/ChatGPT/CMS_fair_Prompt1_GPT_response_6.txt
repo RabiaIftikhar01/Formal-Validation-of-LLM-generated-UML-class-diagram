@@ -1,0 +1,201 @@
+Based on the detailed requirements, user stories, and the provided domain model — and strictly following the good design practices and instructions — I will produce a refined, clean, and simple UML class diagram in PlantUML format. The design will focus on clarity, minimal coupling, proper responsibilities, and extensibility.
+
+---
+
+### Design rationale highlights before the diagram:
+
+- **User hierarchy**: Abstract `User` with two subclasses `Student` and `Instructor`.
+- **Course hierarchy**: Abstract `Course` with concrete subclasses `Undergraduate` and `Postgraduate`.
+- **Enrollment** as an association class between `Student` and `Course` capturing enrollment date and status.
+- **NotificationService** is a separate service class used by `User` and `Course` to send/receive notifications.
+- Operations are categorized and access specifiers are used.
+- Associations are unidirectional where possible.
+- Avoided multi-level inheritance and circular dependencies.
+- Minimal attributes and methods to fulfill requirements and user stories.
+- Added get/set accessors for attributes.
+- Role names or association names used where they clarify relationships.
+- Made methods abstract only where it makes sense.
+- Removed clutter and redundant attributes/operations.
+- Added explanatory notes to clarify design intent.
+
+---
+
+```plantuml
+@startuml
+' Define style and layout for clarity
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+left to right direction
+
+'=========================
+' Abstract User class
+'=========================
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+
+  ' Accessors
+  + getUserId(): String
+  + getName(): String
+  + setName(name: String): void
+  + getEmail(): String
+  + setEmail(email: String): void
+  
+  ' Abstract operation to get user info summary
+  + getInfo(): String
+}
+
+'=========================
+' Student subclass
+'=========================
+class Student {
+  ' Students can view but not edit materials
+  + viewMaterial(course: Course): void
+  
+  ' Accessors for enrollment tracking delegated via Enrollment class
+}
+
+'=========================
+' Instructor subclass
+'=========================
+class Instructor {
+  ' Only instructors can create and update courses
+  + createCourse(courseData: CourseData): Course
+  + updateCourse(course: Course, newMaterials: String): void
+
+  ' Send notifications to enrolled students
+  + sendNotification(notification: Notification, course: Course): void
+}
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+
+'=========================
+' Abstract Course class
+'=========================
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - materials: String
+
+  ' Accessors
+  + getCourseId(): String
+  + getTitle(): String
+  + setTitle(title: String): void
+  + getDescription(): String
+  + setDescription(desc: String): void
+  + getMaterials(): String
+  + setMaterials(materials: String): void
+
+  ' Abstract operation for course info summary
+  + getInfo(): String
+}
+
+class Undergraduate
+class Postgraduate
+
+Course <|-- Undergraduate
+Course <|-- Postgraduate
+
+'=========================
+' Enrollment association class
+'=========================
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+
+  ' Accessors
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + setStatus(status: EnrollmentStatus): void
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+' Association relationships with multiplicity and role names
+Student "1" --> "0..*" Enrollment : enrollments >
+Enrollment "1" --> "1" Course : enrolledCourse >
+Enrollment "1" --> "1" Student : enrolledStudent >
+
+'=========================
+' Notification related classes
+'=========================
+class Notification {
+  - message: String
+  - timestamp: Date
+
+  ' Accessors
+  + getMessage(): String
+  + getTimestamp(): Date
+}
+
+class NotificationService {
+  ' Core business logic to send notifications
+  + sendNotification(notification: Notification, recipient: User): void
+}
+
+' Notification interactions
+NotificationService ..> User : sends to >
+NotificationService ..> Course : triggered by >
+
+'=========================
+' Relationships between classes
+'=========================
+' Instructor publishes courses
+Instructor "1" --> "0..*" Course : publishes >
+
+' Students enroll in courses via Enrollment (association class above)
+
+' Notes for clarity
+note top of User
+  User is an abstract class representing system users.
+  Subclasses are Student and Instructor.
+end note
+
+note top of Course
+  Course is abstract; Undergraduate and Postgraduate are concrete types.
+end note
+
+note right of Enrollment
+  Enrollment records enrollment details and status between
+  Student and Course.
+end note
+
+note bottom of NotificationService
+  NotificationService handles delivering notifications to Users.
+end note
+
+@enduml
+```
+
+---
+
+### Explanation of design decisions:
+
+- **User** is abstract with common attributes and accessors.
+- **Student** and **Instructor** inherit from User, with roles defined by available operations.
+- **Course** is abstract to allow extension (Undergraduate, Postgraduate).
+- **Enrollment** is an association class between Student and Course capturing enrollment date and status.
+- **NotificationService** is a clear separation of concerns: sending notifications.
+- **Notification** encapsulates notification message and timestamp.
+- Multiplicities reflect business rules:
+  - One Student can have many Enrollments.
+  - Each Enrollment connects exactly one Student and one Course.
+  - One Instructor can publish many Courses.
+- Unidirectional associations where possible to reduce coupling.
+- Operations categorized as per guidelines: constructors omitted (assumed), accessors public, business logic operations public.
+- No multi-level inheritance or circular dependencies.
+- Code style consistent, class and attribute names meaningful and concise.
+- Minimal method set to fulfill user stories and system requirements.
+- Notes added for better understandability.
+
+---
+
+This design should be easy to understand, extensible (e.g., add new course types or new user roles), and maintainable per good OO and UML practices. It also aligns well with the provided user stories and system requirements.
