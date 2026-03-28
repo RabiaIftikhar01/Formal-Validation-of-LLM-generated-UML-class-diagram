@@ -1,0 +1,183 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Design Practices applied:
+' 1. Simplicity: Model broken into clear, focused classes (e.g., Course vs. CourseOffering, Notification vs. NotificationService).
+' 2. Naming: Singular nouns, PascalCase for classes/enums, camelCase for attributes/methods.
+' 3. Naming: Class names are short and descriptive.
+' 4. Naming: Consistent PascalCase for classes.
+' 5. Attributes: Carefully assigned to appropriate classes, avoiding bloated or sparse classes.
+' 6. Operations: Classes have meaningful operations; no classes with only one or two trivial operations without justification.
+' 7. Operations: Notification class, initially a data holder, now includes 'markAsRead()' to encapsulate behavior.
+' 8. Responsibilities: Classes like CourseOffering, Student, Instructor have manageable sets of responsibilities.
+' 9. Access Methods: Core behaviors are shown; implicit getters/setters assumed for attributes as per standard practice.
+' 10. Operation Categories: Operations have appropriate visibility (+ public).
+' 11. Relationships: Reduced complexity, clear, and purposeful relationships.
+' 12. Unidirectional: Relationships are generally unidirectional where logical (e.g., NotificationService creates Notification).
+' 13. Inheritance: Single-level inheritance used (User, Course hierarchies).
+' 15. Multiplicity: Clearly defined for all associations.
+' 16. Relationship/Role Names: Used to clarify the purpose of associations.
+' 17. Role Names: Noun phrases.
+' 18. Relationship Names: Verb phrases.
+' 20. Association Class: EnrollmentRecord used as an association class for complex relationship attributes.
+' 21. Relationships: Identified and typed appropriately.
+' 23. Naming: Descriptive and meaningful names for all elements.
+' 24. Consistency: Uniform style, naming conventions, and layout.
+' 25. Notes: Explanatory notes provided for clarity and design rationale.
+' 26. Redundancy: Avoided, e.g., NotificationService doesn't hold Notification message details.
+' 27. Loose Coupling: Classes interact through well-defined interfaces, promoting modularity.
+
+' --- Explanatory Notes ---
+note "This class diagram provides a design-level structural model for the University's Digital Learning Environment.\nIt focuses on core entities, their attributes, behaviors, and relationships, adhering to good design practices for extensibility and maintainability.\n\nKey design decisions:\n- Separation of Course (template) and CourseOffering (specific instance).\n- Association class 'EnrollmentRecord' to capture enrollment-specific data.\n- Dedicated 'Notification' class and 'NotificationService' for decoupled communication.\n- Clear roles and responsibilities for Student and Instructor." as DesignNotes
+
+' --- User Hierarchy ---
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  +getUserInfo(): String
+}
+
+class Student {
+  --
+  +browseCourses(): List<CourseOffering>
+  +enrollInCourse(offering: CourseOffering): EnrollmentRecord
+  +viewAnnouncements(): List<Announcement>
+  +trackEnrollmentStatus(): List<EnrollmentRecord>
+}
+
+class Instructor {
+  --
+  +createCourseOffering(course: Course, term: String, year: int, capacity: int): CourseOffering
+  +updateCourseMaterial(offering: CourseOffering, material: CourseMaterial): void
+  +publishAnnouncement(offering: CourseOffering, title: String, message: String): Announcement
+  +manageEnrollments(offering: CourseOffering): List<EnrollmentRecord>
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' --- Course Hierarchy ---
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  --
+  +getCourseInfo(): String
+}
+
+class UndergraduateCourse {
+}
+
+class PostgraduateCourse {
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' --- Course Offering and Content ---
+class CourseOffering {
+  -offeringId: String
+  -term: String
+  -year: int
+  -capacity: int
+  -availableSeats: int
+  --
+  +addCourseMaterial(material: CourseMaterial): void
+  +addAnnouncement(announcement: Announcement): void
+  +getCourseContent(): List<CourseMaterial>
+  +getAnnouncements(): List<Announcement>
+}
+
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -contentType: String  ' e.g., "PDF", "Video", "Link"
+  -url: String
+  -uploadDate: Date
+  --
+  +viewContent(): void
+}
+
+class Announcement {
+  -announcementId: String
+  -title: String
+  -message: String
+  -publishDate: Date
+  --
+  +viewAnnouncement(): void
+}
+
+' --- Enrollment ---
+class EnrollmentRecord {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  +updateStatus(newStatus: EnrollmentStatus): void
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+  Dropped
+}
+
+' --- Notifications ---
+class Notification {
+  -notificationId: String
+  -title: String
+  -message: String
+  -timestamp: Date
+  -isRead: boolean = false
+  --
+  +markAsRead(): void
+}
+
+class NotificationService {
+  --
+  +sendNotification(recipient: User, title: String, message: String): Notification
+  +sendCourseAnnouncementNotifications(announcement: Announcement, offering: CourseOffering): void
+  +sendEnrollmentStatusUpdate(enrollment: EnrollmentRecord): void
+}
+
+' --- Relationships ---
+
+' Instructor manages CourseOfferings
+Instructor "1" -- "0..*" CourseOffering : manages >
+
+' Course has multiple offerings
+Course "1" -- "0..*" CourseOffering : is_offered_as >
+
+' CourseOffering aggregates CourseMaterial and Announcement
+CourseOffering "1" -- "0..*" CourseMaterial : contains >
+CourseOffering "1" -- "0..*" Announcement : publishes >
+
+' EnrollmentRecord as an association class between Student and CourseOffering
+Student "1" -- "0..*" CourseOffering : enrolls_in
+(Student, CourseOffering) .. EnrollmentRecord
+
+' EnrollmentRecord uses EnrollmentStatus
+EnrollmentRecord --> EnrollmentStatus : has
+
+' User receives Notifications
+User "1" <-- "0..*" Notification : receives
+
+' NotificationService sends Notifications
+NotificationService .right.> Notification : creates_and_sends
+
+' --- System-level notes from User Stories ---
+note "US-SYS1: System ensures only instructors can create or update courses.\n(Implied by authorization logic around Instructor methods)" as SysNote1
+Instructor .. SysNote1
+
+note "US-SYS2: System automatically records enrollment date and status.\n(Handled during EnrollmentRecord creation and updates)" as SysNote2
+EnrollmentRecord .. SysNote2
+
+note "US-SYS3: System delivers notifications through NotificationService." as SysNote3
+NotificationService .. SysNote3
+
+@enduml
+```

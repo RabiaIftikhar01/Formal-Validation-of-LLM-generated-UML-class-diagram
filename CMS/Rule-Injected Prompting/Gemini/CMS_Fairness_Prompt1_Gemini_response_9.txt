@@ -1,0 +1,273 @@
+As a professional Software Engineer, I have analyzed the provided requirements, user stories, use case diagram, and domain model. I have meticulously applied the given design practices and instructions to produce a clear, robust, and maintainable class diagram. The design prioritizes simplicity, loose coupling, and clear responsibilities to ensure the system is extensible and easy to understand for future development and maintenance.
+
+Here's the rationale behind key design decisions, aligning with the provided practices:
+
+1.  **Class Naming & Conventions (Practices 2, 3, 4, 23, 24):**
+    *   All classes are named as singular nouns (e.g., `Student`, `CourseOffering`, `Enrollment`).
+    *   PascalCase is used for class names (e.g., `CourseOffering`, `NotificationService`).
+    *   camelCase is used for attributes and methods (e.g., `enrollmentDate`, `createCourseOffering`).
+    *   Enums are uppercase with underscores (e.g., `WAITLISTED`, `ANNOUNCEMENT`).
+    *   This ensures consistency and readability.
+
+2.  **User and Role Modeling (Practices 5, 8, 13):**
+    *   The `User` abstract class serves as a base for common attributes (`userId`, `name`, `email`) and behaviors (`getInfo`, `receiveNotification`).
+    *   `Student` and `Instructor` inherit from `User`, clearly defining their specific roles and operations (`enrollInCourse`, `createCourseOffering`).
+    *   This avoids redundancy and adheres to the "avoid multi-level inheritance" practice by keeping the hierarchy shallow.
+
+3.  **Course Structure Refinement (Practices 1, 5, 8, 13, 20):**
+    *   Instead of `Undergraduate` and `Postgraduate` as subclasses of `Course` (as in the domain model), `Course` represents the generic course definition (e.g., "Introduction to Programming").
+    *   `CourseOffering` represents a specific instance of a `Course` taught in a particular term/year, and it contains a `type: CourseType` attribute (an enum). This simplifies the hierarchy, making it more flexible for new course types without altering the class structure, and avoids multi-level inheritance for offerings.
+    *   `CourseMaterial`, `Announcement`, and `Assignment` are modeled as separate classes aggregated by `CourseOffering`. This keeps `CourseOffering`'s responsibilities manageable and avoids "classes with too many attributes" (Practice 5).
+
+4.  **Enrollment as an Association Class (Practice 20):**
+    *   `Enrollment` is modeled as an association class between `Student` and `CourseOffering`. This is ideal because `Enrollment` has attributes (`enrollmentDate`, `status`) that describe the relationship itself, not just one of the participating classes. This clearly implements business rules regarding enrollment details (US-SYS2, US-S4).
+
+5.  **Notification System Design (Practices 5, 8, 27):**
+    *   A dedicated `Notification` class holds the data for a notification (`message`, `timestamp`, `type`).
+    *   `NotificationService` is a separate, stateless class responsible solely for sending notifications. This promotes loose coupling (Practice 27), as other classes (`CourseOffering`, `Instructor`) can *use* this service without being tightly coupled to its implementation details.
+    *   The `User` class includes `receiveNotification()` to demonstrate how users interact with notifications.
+    *   `CourseOffering` has a private `triggerNotification` helper method that uses `NotificationService` to send notifications related to course events (e.g., new announcements, assignment deadlines), adhering to US-SYS3 and US-I3.
+
+6.  **Attributes and Operations (Practices 5, 6, 7, 8, 9, 10):**
+    *   Attributes are carefully assigned to appropriate classes, ensuring a manageable set per class.
+    *   Most attributes have public getter methods (`getUserId()`, `getTitle()`) as per industry standard (Practice 9).
+    *   Operations are assigned to classes based on their responsibilities (e.g., `Instructor` creates/updates, `Student` enrolls/views).
+    *   Helper methods (like `CourseOffering.triggerNotification`) are marked as private (Practice 10).
+
+7.  **Relationships and Multiplicity (Practices 11, 12, 15, 16, 17, 18, 19, 21):**
+    *   Relationships are identified with clear multiplicities (e.g., `1` to `0..*`), explaining the business rules (Practice 15).
+    *   Many associations are unidirectional (e.g., `Instructor` manages `CourseOffering`), reducing coupling and improving reusability and maintainability (Practice 12, 27).
+    *   Relationship names (e.g., `manages`, `offers`, `contains`) are used where necessary to clarify the purpose of the association (Practice 18).
+    *   Dependencies (`..>`) are used for `CourseOffering ..> NotificationService` to show that `CourseOffering` relies on `NotificationService` to perform its duties without a strong structural coupling.
+
+8.  **Simplification and Readability (Practices 1, 25, 26):**
+    *   The model avoids redundancy and strives for the simplest representation that fulfills the requirements.
+    *   Explanatory notes are added to clarify complex interactions or design choices (e.g., instructor authorization, notification delivery).
+    *   Hidden relationships (`-[hidden]`) are used to improve the layout and prevent clutter, enhancing readability.
+
+This design aims for high internal quality factors (maintainability, extensibility, understandability) which in turn support external quality factors (correctness, reliability).
+
+```plantuml
+@startuml
+!theme mars
+
+' Design Practices Applied:
+' 1. Simplicity & Readability: Clear layout, focused responsibilities.
+' 2,3,4,23,24. Naming Conventions: PascalCase for classes, camelCase for attributes/methods, singular nouns.
+' 5,6,7,8. Attributes & Operations: Carefully assigned, manageable responsibilities, access methods.
+' 9,10. Access Methods & Specifiers: Public getters, private helper methods.
+' 11,12,15,16,17,18,19,21. Relationships: Identified, refined to unidirectional where possible, explicit multiplicity, role/relationship names.
+' 13. Avoid Multi-level Inheritance: Shallow hierarchy for User. Course types are enums.
+' 20. Association Class: Used for Enrollment.
+' 25. Explanatory Notes: Added for clarity.
+' 26. Avoid Redundancy: Information represented once.
+' 27. Loose Coupling: NotificationService decouples notification logic.
+
+title University Online Learning System - Design Class Diagram
+
+' Enums: Define distinct types and statuses
+enum CourseType {
+  +UNDERGRADUATE
+  +POSTGRADUATE
+}
+
+enum EnrollmentStatus {
+  +WAITLISTED
+  +ACTIVE
+  +COMPLETED
+}
+
+enum NotificationType {
+  +ANNOUNCEMENT
+  +ASSIGNMENT_DUE
+  +SUBMISSION_RECEIVED
+  +COURSE_UPDATE
+}
+
+' User Hierarchy: Abstract base class for common properties and behaviors
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  +getUserId(): String
+  +getName(): String
+  +getEmail(): String
+  +abstract getInfo(): String
+  +receiveNotification(notification: Notification): void
+}
+
+' Student Role: Specific behaviors for students
+class Student {
+  --
+  +enrollInCourse(offering: CourseOffering): Enrollment
+  +viewCourseContent(material: CourseMaterial): void
+  +trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+}
+
+' Instructor Role: Specific behaviors for instructors
+class Instructor {
+  --
+  +createCourseOffering(course: Course, term: String, year: int, type: CourseType): CourseOffering
+  +updateCourseMaterial(offering: CourseOffering, material: CourseMaterial): void
+  +publishAnnouncement(offering: CourseOffering, title: String, message: String): Announcement
+  +createAssignment(offering: CourseOffering, title: String, description: String, dueDate: Date): Assignment
+}
+
+' Course Definitions: Generic course information
+class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  --
+  +getCourseId(): String
+  +getTitle(): String
+  +getDescription(): String
+}
+
+' Course Offering: A specific instance of a course being offered
+class CourseOffering {
+  -offeringId: String
+  -term: String
+  -year: int
+  -type: CourseType ' Distinguishes undergraduate/postgraduate
+  --
+  +getOfferingId(): String
+  +getTerm(): String
+  +getYear(): int
+  +getType(): CourseType
+  +addMaterial(material: CourseMaterial): void
+  +addAnnouncement(announcement: Announcement): void
+  +addAssignment(assignment: Assignment): void
+  -triggerNotification(notification: Notification, recipients: List<User>): void ' Helper method for internal notification triggering
+}
+
+' Course Content Components
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -contentUrl: String
+  -uploadDate: Date
+  --
+  +getMaterialId(): String
+  +getTitle(): String
+  +getContentUrl(): String
+  +getUploadDate(): Date
+}
+
+class Announcement {
+  -announcementId: String
+  -title: String
+  -message: String
+  -publishDate: Date
+  --
+  +getAnnouncementId(): String
+  +getTitle(): String
+  +getMessage(): String
+  +getPublishDate(): Date
+}
+
+class Assignment {
+  -assignmentId: String
+  -title: String
+  -description: String
+  -dueDate: Date
+  --
+  +getAssignmentId(): String
+  +getTitle(): String
+  +getDescription(): String
+  +getDueDate(): Date
+}
+
+' Enrollment: Models the relationship between a Student and a CourseOffering
+' An association class is used as Enrollment has its own attributes (date, status)
+class Enrollment {
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  +getEnrollmentDate(): Date
+  +getStatus(): EnrollmentStatus
+  +updateStatus(newStatus: EnrollmentStatus): void
+}
+
+' Notification System: Decoupled service for sending notifications
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  --
+  +getNotificationId(): String
+  +getMessage(): String
+  +getTimestamp(): Date
+  +getType(): NotificationType
+}
+
+class NotificationService {
+  --
+  +sendNotification(notification: Notification, recipient: User): void
+  +sendBatchNotification(notification: Notification, recipients: List<User>): void
+}
+
+'----------------------------------------------------------------------------------------------------
+' Relationships
+'----------------------------------------------------------------------------------------------------
+
+' Generalization (Inheritance)
+User <|-- Student
+User <|-- Instructor
+
+' Course Structure Relationships
+Course "1" --> "0..*" CourseOffering : offers >
+Instructor "1" --> "0..*" CourseOffering : manages >
+CourseOffering "1" o-- "0..*" CourseMaterial : contains >
+CourseOffering "1" o-- "0..*" Announcement : publishes >
+CourseOffering "1" o-- "0..*" Assignment : defines >
+
+' Enrollment Association Class
+Student "1" -- "0..*" Enrollment : hasEnrollment >
+CourseOffering "1" -- "0..*" Enrollment : includesEnrollment >
+(Student, CourseOffering) .. Enrollment
+
+' Notification System Relationships
+CourseOffering ..> NotificationService : uses >
+NotificationService "1" --> "1" Notification : createsAndSends >
+' A direct structural relationship from Notification to User is not necessary;
+' the interaction is handled by NotificationService sending to User.
+
+'----------------------------------------------------------------------------------------------------
+' Explanatory Notes (Practice 25)
+'----------------------------------------------------------------------------------------------------
+note "Instructor is authorized by the system to create or update courses (US-SYS1)." as N1
+Instructor .. N1
+
+note "Enrollment records automatically capture date and status upon enrollment (US-SYS2)." as N2
+Enrollment .. N2
+
+note "Notifications are delivered to recipients via the NotificationService (US-SYS3)." as N3
+NotificationService .. N3
+
+note "CourseOffering triggers notifications for events like new announcements or assignment deadlines, leveraging NotificationService." as N4
+CourseOffering .. N4
+
+note "Students can only view course content; editing is restricted." as N5
+Student .. N5
+
+'----------------------------------------------------------------------------------------------------
+' Layout for Readability (Practice 1)
+'----------------------------------------------------------------------------------------------------
+CourseType -[hidden]right- EnrollmentStatus
+EnrollmentStatus -[hidden]right- NotificationType
+
+User -[hidden]down- Course
+Course -[hidden]down- CourseOffering
+
+CourseOffering -[hidden]down- CourseMaterial
+CourseOffering -[hidden]down- Announcement
+CourseOffering -[hidden]down- Assignment
+
+Enrollment -[hidden]down- Notification
+Notification -[hidden]down- NotificationService
+
+@enduml
+```

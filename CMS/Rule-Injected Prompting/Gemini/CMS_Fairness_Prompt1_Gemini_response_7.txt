@@ -1,0 +1,175 @@
+```plantuml
+@startuml
+!theme mars
+
+title University Online Learning System - Class Diagram
+
+' --- Enums: Represent fixed sets of valid states or types ---
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum CourseOfferingStatus {
+  Draft
+  Published
+  Archived
+}
+
+' --- Abstract Base Classes: Define common attributes and behaviors for related classes ---
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + abstract getInfo(): String
+  + receiveNotification(notification: Notification)
+}
+
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + abstract getInfo(): String
+}
+
+' --- Concrete User Roles: Specialize the User class with role-specific responsibilities ---
+class Student {
+  --
+  + browseCourseOfferings(): List<CourseOffering>
+  + enrollInCourseOffering(offering: CourseOffering): Enrollment
+  + viewAnnouncements(offering: CourseOffering): List<Announcement>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + viewCourseMaterial(material: CourseMaterial)
+}
+
+class Instructor {
+  --
+  + createCourseOffering(course: Course, startDate: Date, endDate: Date, capacity: int, location: String): CourseOffering
+  + publishCourseOffering(offering: CourseOffering)
+  + updateCourseMaterial(material: CourseMaterial, newContent: String)
+  + sendCourseNotification(offering: CourseOffering, message: String)
+}
+
+' --- Concrete Course Types: Specialize the Course class for different academic levels ---
+class UndergraduateCourse {
+  ' Specific attributes/operations for undergraduate courses can be added here
+}
+
+class PostgraduateCourse {
+  ' Specific attributes/operations for postgraduate courses can be added here
+}
+
+' --- Core Learning Components: Classes representing the main entities of the learning system ---
+class CourseOffering {
+  - offeringId: String
+  - startDate: Date
+  - endDate: Date
+  - capacity: int
+  - location: String
+  - status: CourseOfferingStatus
+  --
+  + getCourseMaterials(): List<CourseMaterial>
+  + addCourseMaterial(material: CourseMaterial)
+  + getEnrollments(): List<Enrollment>
+  + addAnnouncement(announcement: Announcement)
+  + getAnnouncements(): List<Announcement>
+  + publish()
+  + archive()
+}
+
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - contentUrl: String
+  - uploadDate: Date
+  --
+  + viewContent(): String
+  + updateContent(newContentUrl: String)
+}
+
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus)
+  + getEnrollmentDetails(): String
+}
+
+class Announcement {
+  - announcementId: String
+  - title: String
+  - message: String
+  - publishDate: Date
+  --
+  + viewMessage(): String
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - isRead: boolean
+  --
+  + markAsRead()
+}
+
+' --- System Services: Provide cross-cutting functionalities ---
+class NotificationService {
+  --
+  + sendNotification(message: String, recipient: User, eventType: String)
+}
+
+
+' --- Relationships ---
+
+' Inheritance: "is-a" relationships
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Associations: "has-a" or "uses-a" relationships, with multiplicities and roles
+' Instructor manages CourseOfferings
+Instructor "1" --> "0..*" CourseOffering : manages >
+
+' Course defines CourseOfferings
+Course "1" --> "0..*" CourseOffering : defines >
+
+' CourseOffering aggregates CourseMaterial, Announcement, and Enrollment
+CourseOffering "1" -- "0..*" CourseMaterial : contains
+CourseOffering "1" -- "0..*" Announcement : publishes
+CourseOffering "1" -- "0..*" Enrollment : has
+
+' Student has Enrollments
+Student "1" -- "0..*" Enrollment : has
+
+' Enrollment links a Student to a CourseOffering (representing a many-to-many relationship)
+Enrollment "1" -- "1" Student : forStudent
+Enrollment "1" -- "1" CourseOffering : forOffering
+
+' User receives Notifications
+User "1" -- "0..*" Notification : receives
+
+' Notification refers to a User
+Notification "1" --> "1" User : forUser
+
+' Dependencies: Indicates that one class uses another, typically through method calls
+Instructor .down.> NotificationService : uses
+NotificationService .down.> User : sends to
+
+' Notes for clarity and to explain system responsibilities from User Stories (Guideline 25)
+note "Instructor operations for creating/updating CourseOfferings \nand CourseMaterials imply authorization checks (US-SYS1)." as N1
+Instructor .. N1
+
+note "Enrollment creation and status updates \nare handled automatically by the system (US-SYS2)." as N2
+Enrollment .. N2
+
+note "Notifications are delivered via \nthe NotificationService (US-SYS3)." as N3
+NotificationService .. N3
+
+@enduml
+```

@@ -1,0 +1,212 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Title for the diagram
+title University Learning Platform - Design Class Diagram
+
+' --- Enums for specific states/types ---
+enum EnrollmentStatus {
+  +Waitlisted
+  +Active
+  +Completed
+  +Dropped
+}
+
+enum CourseLevel {
+  +Undergraduate
+  +Postgraduate
+}
+
+enum MaterialType {
+  +PDF
+  +Video
+  +Link
+  +Assignment
+  +Quiz
+}
+
+' --- Abstract User Class (Base for all system users) ---
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  +User(userId: String, name: String, email: String)
+  +getUserId(): String
+  +getName(): String
+  +getEmail(): String
+  +updateEmail(newEmail: String): void
+  +abstract receiveNotification(notification: Notification): void
+}
+
+' --- Student Class (inherits from User) ---
+class Student {
+  --
+  +Student(userId: String, name: String, email: String)
+  +browseAvailableCourseOfferings(): List<CourseOffering>
+  +enrollInCourseOffering(offering: CourseOffering): Enrollment
+  +viewCourseContent(courseOffering: CourseOffering): List<CourseMaterial>
+  +trackEnrollmentStatus(): List<Enrollment>
+  +viewAnnouncements(): List<Announcement>
+  +receiveNotification(notification: Notification): void
+}
+
+' --- Instructor Class (inherits from User) ---
+class Instructor {
+  --
+  +Instructor(userId: String, name: String, email: String)
+  +createCourseOffering(course: Course, level: CourseLevel, year: int, semester: String): CourseOffering
+  +updateCourseMaterial(offering: CourseOffering, materialId: String, newTitle: String, newContentUrl: String): void
+  +releaseCourseOffering(offering: CourseOffering): void
+  +sendAnnouncement(offering: CourseOffering, subject: String, message: String): Announcement
+  +receiveNotification(notification: Notification): void
+}
+
+' --- Course Related Classes ---
+class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  --
+  +Course(courseId: String, title: String, description: String)
+  +getCourseId(): String
+  +getTitle(): String
+  +getDescription(): String
+}
+
+class CourseOffering {
+  -offeringId: String
+  -year: int
+  -semester: String
+  -courseLevel: CourseLevel
+  -status: String ' e.g., "Open", "Closed", "Full"
+  --
+  +CourseOffering(offeringId: String, year: int, semester: String, courseLevel: CourseLevel, course: Course, instructor: Instructor)
+  +getOfferingId(): String
+  +getYear(): int
+  +getSemester(): String
+  +getCourseLevel(): CourseLevel
+  +getStatus(): String
+  +addCourseMaterial(material: CourseMaterial): void
+  +removeCourseMaterial(materialId: String): void
+  +updateStatus(newStatus: String): void
+  +getCourse(): Course
+  +getInstructor(): Instructor
+}
+
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -type: MaterialType
+  -contentUrl: String
+  -uploadDate: Date
+  --
+  +CourseMaterial(materialId: String, title: String, type: MaterialType, contentUrl: String)
+  +getMaterialId(): String
+  +getTitle(): String
+  +getType(): MaterialType
+  +getContentUrl(): String
+  +getUploadDate(): Date
+  +updateContentUrl(newUrl: String): void
+}
+
+' --- Enrollment Class (Association Class between Student and CourseOffering) ---
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  -studentId: String ' Foreign key to Student
+  -courseOfferingId: String ' Foreign key to CourseOffering
+  --
+  +Enrollment(enrollmentId: String, studentId: String, courseOfferingId: String)
+  +getEnrollmentId(): String
+  +getEnrollmentDate(): Date
+  +getStatus(): EnrollmentStatus
+  +updateStatus(newStatus: EnrollmentStatus): void
+  +getStudentId(): String
+  +getCourseOfferingId(): String
+}
+
+' --- Notification Related Classes ---
+class NotificationService {
+  --
+  +NotificationService()
+  +sendNotification(notification: Notification, recipient: User): void
+  -deliverMessage(message: String, email: String): boolean ' Helper method
+}
+
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -isRead: boolean
+  -recipientId: String ' Foreign key to User
+  --
+  +Notification(notificationId: String, message: String, recipientId: String)
+  +getNotificationId(): String
+  +getMessage(): String
+  +getTimestamp(): Date
+  +isRead(): boolean
+  +markAsRead(): void
+  +getRecipientId(): String
+}
+
+class Announcement {
+  -subject: String
+  -courseOfferingId: String ' Foreign key to CourseOffering
+  --
+  +Announcement(notificationId: String, message: String, recipientId: String, subject: String, courseOfferingId: String)
+  +getSubject(): String
+  +getCourseOfferingId(): String
+}
+
+' --- Relationships ---
+
+' User Inheritance
+User <|-- Student
+User <|-- Instructor
+
+' Course and CourseOffering Relationship
+Course "1" -- "0..*" CourseOffering : offeredAs >
+
+' Instructor manages CourseOfferings
+Instructor "1" -- "0..*" CourseOffering : manages >
+
+' CourseOffering includes CourseMaterials
+CourseOffering "1" -- "0..*" CourseMaterial : includes >
+
+' Enrollment as an Association Class
+Student "1" -- "0..*" Enrollment : participatesIn >
+CourseOffering "1" -- "0..*" Enrollment : hasEnrollment >
+Enrollment *-- "1" EnrollmentStatus : hasStatus
+
+' Notification Hierarchy and Service interaction
+Notification <|-- Announcement
+NotificationService "1" -- "0..*" Notification : generates >
+
+' Instructors post Announcements to CourseOfferings
+Instructor ..> Announcement : creates >
+CourseOffering "1" -- "0..*" Announcement : posts >
+
+' Student and Instructor interact with NotificationService to receive notifications
+Student ..> NotificationService : usesService >
+Instructor ..> NotificationService : usesService >
+
+
+' --- Explanatory Notes ---
+note "A **Course** defines the academic subject.\nA **CourseOffering** is a specific instance of a Course being taught (e.g., 'Intro to CS - Fall 2023'). It carries the specific level and schedule." as N1
+Course .. N1
+CourseOffering .. N1
+
+note "The **Enrollment** class serves as an association class, capturing details specific to a student's enrollment in a particular course offering, such as date and status." as N2
+Enrollment .. N2
+
+note "The **NotificationService** decouples the act of sending notifications from the generation of notification content, promoting loose coupling." as N3
+NotificationService .. N3
+
+note "Only **Instructors** are authorized to create, update, and release CourseOfferings and their materials, as enforced by system logic within their operations." as N4
+Instructor .. N4
+
+@enduml
+```

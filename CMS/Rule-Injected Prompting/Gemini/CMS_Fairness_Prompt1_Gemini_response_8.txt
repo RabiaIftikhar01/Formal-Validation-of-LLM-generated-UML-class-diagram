@@ -1,0 +1,200 @@
+Here is the design-level UML Class Diagram for the Online Learning System, following all the provided design practices and instructions. The diagram aims for simplicity, clarity, and maintainability, focusing on core entities and their interactions.
+
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam linetype ortho
+
+title Online Learning System - Class Diagram
+
+' Enums
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+  Dropped
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDue
+  SubmissionReceived
+  EnrollmentStatusChange
+}
+
+enum MaterialType {
+  Lecture
+  Assignment
+  Reading
+  Quiz
+}
+
+' Abstract User and concrete roles
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + User(userId: String, name: String, email: String)
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+  + abstract getInfo(): String
+}
+
+class Student {
+  --
+  + Student(userId: String, name: String, email: String)
+  + viewCourseContent(courseOffering: CourseOffering): List<CourseMaterial>
+  + enrollInCourse(courseOffering: CourseOffering): Enrollment
+  + trackEnrollmentStatus(): List<Enrollment>
+  + browseCourses(): List<CourseOffering>
+  + viewNotifications(): List<Notification>
+}
+
+class Instructor {
+  --
+  + Instructor(userId: String, name: String, email: String)
+  + createCourseOffering(course: Course, term: String, year: int, capacity: int): CourseOffering
+  + updateCourseMaterial(courseOffering: CourseOffering, materialId: String, newTitle: String, newContentUrl: String): void
+  + publishCourseOffering(courseOffering: CourseOffering): void
+  + sendAnnouncement(courseOffering: CourseOffering, message: String): void
+  + viewNotifications(): List<Notification>
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' Abstract Course and concrete types
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + Course(courseId: String, title: String, description: String)
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + abstract getInfo(): String
+}
+
+class UndergraduateCourse {
+  --
+  + UndergraduateCourse(courseId: String, title: String, description: String)
+  + getInfo(): String
+}
+
+class PostgraduateCourse {
+  --
+  + PostgraduateCourse(courseId: String, title: String, description: String)
+  + getInfo(): String
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Course Offering and Materials
+class CourseOffering {
+  - offeringId: String
+  - academicTerm: String
+  - year: int
+  - maxCapacity: int
+  - currentEnrollment: int
+  --
+  + CourseOffering(id: String, course: Course, instructor: Instructor, term: String, year: int, capacity: int)
+  + addMaterial(material: CourseMaterial): void
+  + updateMaterial(materialId: String, newTitle: String, newContentUrl: String): void
+  + removeMaterial(materialId: String): void
+  + getAvailableSlots(): int
+  + getCourseDetails(): String
+  + getCourseMaterials(): List<CourseMaterial>
+}
+
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - contentUrl: String
+  - uploadDate: Date
+  - type: MaterialType
+  --
+  + CourseMaterial(id: String, title: String, url: String, date: Date, type: MaterialType)
+  + getMaterialId(): String
+  + getTitle(): String
+  + getContentUrl(): String
+  + getUploadDate(): Date
+  + getType(): MaterialType
+}
+
+Course "1" o-- "0..*" CourseOffering : offers >
+Instructor "1" -- "0..*" CourseOffering : publishes >
+CourseOffering "1" *-- "0..*" CourseMaterial : contains >
+
+' Enrollment (Association Class)
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + Enrollment(student: Student, courseOffering: CourseOffering, date: Date)
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getEnrollmentId(): String
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+}
+
+Student "1" -- "0..*" Enrollment : enrolls >
+CourseOffering "1" -- "0..*" Enrollment : has >
+
+' Explicit links for association class
+Enrollment "1" -- "1" Student : enrolledStudent >
+Enrollment "1" -- "1" CourseOffering : enrolledCourse >
+
+' Notifications
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  - isRead: boolean
+  --
+  + Notification(id: String, message: String, timestamp: Date, type: NotificationType, recipient: User)
+  + markAsRead(): void
+  + getNotificationId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+  + isRead(): boolean
+}
+
+class NotificationService {
+  --
+  + sendNotification(message: String, type: NotificationType, recipient: User): void
+  + getNotificationsForUser(user: User): List<Notification>
+  + markNotificationAsRead(notificationId: String, user: User): void
+}
+
+NotificationService "1" -- "*" Notification : sends >
+Notification "1" -- "1" User : recipient >
+
+' Dependencies (usage)
+Instructor ..> NotificationService : uses >
+Enrollment ..> NotificationService : triggers >
+
+' Notes for clarity and additional information
+note "Authorization checks for instructor actions\nare handled by a separate security service\n(not explicitly modeled here)." as N1
+Instructor .left. N1
+
+note "Students can view course content but cannot edit it,\nas enforced by the system." as N2
+Student .left. N2
+
+note "Enrollment records automatically include\nthe enrollment date and status." as N3
+Enrollment .right. N3
+
+@enduml
+```

@@ -1,0 +1,211 @@
+```plantuml
+@startuml
+' University Digital Learning Platform - Class Diagram
+' Designed by a professional Software Engineer
+' This diagram follows good design practices, aiming for simplicity, clarity, maintainability, and extensibility.
+
+' Design Practices Applied:
+' 1. Simplicity: Model is focused on core entities and their interactions. Complex distinctions (like UG/PG courses) are simplified with enums where appropriate, reducing class count.
+' 2. Naming Conventions: Class names are singular nouns (e.g., User, CourseOffering), PascalCase. Attributes and methods are camelCase.
+' 3. Short Names: Names like 'Material' instead of 'CourseContentItem'.
+' 4. Consistent Naming: All class names consistently use PascalCase.
+' 5. Attribute Assignment: Attributes are carefully placed in the most relevant class (e.g., enrollmentDate in Enrollment, uploadDate in Material).
+' 6. Operations: Each class has a clear, manageable set of operations reflecting its responsibilities.
+' 7. No operation-less classes: All classes encapsulate both data and behavior.
+' 8. Manageable Responsibilities: Classes like NotificationService have a single, well-defined responsibility (sending notifications).
+' 9. Access Methods: Essential getters are included for clarity.
+' 10. Access Specifiers: Public for interface methods, private for internal state/helper methods.
+' 11. Reduced Relationships: Only necessary relationships are included, avoiding over-connectivity.
+' 12. Unidirectional Associations: Used where one-way knowledge is sufficient (e.g., NotificationService only needs to know about User, not vice-versa for its primary function). Bidirectional when essential (e.g., Student-Enrollment).
+' 13. No Multi-level Inheritance: Inheritance depth is kept to one level (e.g., Student/Instructor from User).
+' 15. Multiplicity: Clearly defined for all associations, representing business rules.
+' 16. Role Names: Used to clarify the purpose of associations (e.g., "manages", "basedOn", "recipient").
+' 20. Association Class: 'Enrollment' acts as an association class between 'Student' and 'CourseOffering'.
+' 23. Descriptive Names: Clear and meaningful names for classes, attributes, and methods.
+' 24. Constant Style: Consistent naming, notation, and layout.
+' 25. Explanatory Notes: Added to clarify complex sections or design decisions.
+' 26. Avoid Redundancy: Information is not duplicated across classes unnecessarily.
+' 27. Loose Coupling: NotificationService is a prime example, allowing other classes to trigger notifications without knowing the implementation details.
+
+' Theme and Styling for better readability
+!define PRIMARY_COLOR #ADD1B2
+!define ACCENT_COLOR #FFD700
+!define BG_COLOR #FEFEFE
+!define ABSTRACT_COLOR #D3D3D3
+!define ENUM_COLOR #E0E0E0
+!define NOTE_COLOR #FFFFCC
+
+skinparam class {
+    BackgroundColor PRIMARY_COLOR
+    ArrowColor ACCENT_COLOR
+    BorderColor ACCENT_COLOR
+    FontColor #333333
+    StereotypeFontColor #333333
+    StereotypeBackgroundColor #F0F0F0
+}
+skinparam enum {
+    BackgroundColor ENUM_COLOR
+    BorderColor #A0A0A0
+    FontColor #333333
+}
+skinparam abstract {
+    BackgroundColor ABSTRACT_COLOR
+    BorderColor #808080
+}
+skinparam note {
+    BackgroundColor NOTE_COLOR
+    BorderColor #CCCC00
+    FontColor #333333
+}
+skinparam stereotypeCBackgroundColor ACCENT_COLOR
+
+title University Digital Learning Platform - Design Class Diagram
+
+' --- User and Roles ---
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  +getUserInfo(): String
+}
+
+class Student {
+  +browseCourses(): List<CourseOffering>
+  +enrollInCourse(offering: CourseOffering): Enrollment
+  +viewCourseContent(offering: CourseOffering): List<Material>
+  +trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+}
+
+class Instructor {
+  +createCourseOffering(template: CourseTemplate, details: Map<String, String>): CourseOffering
+  +updateCourseMaterial(offering: CourseOffering, material: Material)
+  +sendAnnouncement(offering: CourseOffering, message: String)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' --- Course Structure ---
+class CourseTemplate {
+  -templateId: String
+  -title: String
+  -description: String
+  -level: CourseLevel
+  +getTemplateInfo(): String
+}
+
+enum CourseLevel {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+class CourseOffering {
+  -offeringId: String
+  -semester: String
+  -year: int
+  -maxCapacity: int
+  -currentEnrollmentCount: int
+  -schedule: String
+  -location: String
+  +addMaterial(material: Material)
+  +removeMaterial(material: Material)
+  +getAvailableSeats(): int
+  +increaseEnrollmentCount()
+  +decreaseEnrollmentCount()
+}
+
+class Material {
+  -materialId: String
+  -title: String
+  -type: String ' e.g., "PDF", "Video", "Link"
+  -url: String
+  -uploadDate: Date
+  +getFileUrl(): String
+}
+
+' --- Enrollment ---
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  +updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+' --- Notifications ---
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  -isRead: boolean
+  +markAsRead()
+  +getMessageContent(): String
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  ASSIGNMENT_DEADLINE
+  SUBMISSION_REMINDER
+  COURSE_UPDATE
+}
+
+class NotificationService {
+  +sendNotification(message: String, type: NotificationType, recipients: List<User>): List<Notification>
+}
+
+' --- Relationships ---
+
+' Instructor manages CourseOfferings
+Instructor "1" -- "0..*" CourseOffering : manages > courseOfferings
+note on link: An Instructor can manage zero or more course offerings.
+
+' CourseOffering is based on a CourseTemplate
+CourseOffering "1" -- "1" CourseTemplate : basedOn > courseDefinition
+note on link: Each CourseOffering is derived from exactly one CourseTemplate.
+
+' CourseOffering contains Materials
+CourseOffering "1" -- "0..*" Material : contains > materials
+note on link: A CourseOffering can have zero or more materials.
+
+' Student has Enrollments
+Student "1" -- "0..*" Enrollment : has > enrollments
+note on link: A Student can have zero or more enrollments.
+
+' CourseOffering has Enrollments
+CourseOffering "1" -- "0..*" Enrollment : has > enrollments
+note on link: A CourseOffering can have zero or more enrollments.
+
+' Enrollment links a Student to a CourseOffering
+Enrollment "1" -- "1" Student : forStudent > student
+Enrollment "1" -- "1" CourseOffering : forOffering > offering
+note on link: An Enrollment is specific to one Student and one CourseOffering.
+
+' User receives Notifications
+User "1" -- "0..*" Notification : receives > notifications
+note on link: Each Notification instance is unique to one user for 'isRead' tracking.\nIf an announcement is broadcast, the service creates a Notification for each recipient.
+
+' NotificationService creates and sends Notifications
+NotificationService .> Notification : creates/sends
+NotificationService .> User : targets
+note on link: NotificationService orchestrates the creation and delivery of Notifications to Users.
+
+' Instructor and CourseOffering utilize NotificationService
+Instructor .> NotificationService : uses >
+CourseOffering .> NotificationService : triggers >
+note on link: Instructors and CourseOfferings (e.g., for automated alerts) delegate notification tasks to NotificationService.
+
+' --- Explanatory Notes ---
+note right of CourseTemplate : Defines the general structure and content of a course.\n'CourseLevel' enum handles undergraduate/postgraduate distinction for simplicity, avoiding unnecessary class hierarchy.
+note right of CourseOffering : A specific instance of a course offered in a given term (e.g., "Fall 2023 Intro to CS"), managed by an Instructor.
+note right of Enrollment : An association class that tracks a student's participation in a specific course offering, including the enrollment date and current status.
+note right of NotificationService : A centralized service responsible for creating and delivering various types of alerts (announcements, deadlines, etc.) to users. It promotes loose coupling by abstracting notification logic.
+
+@enduml
+```

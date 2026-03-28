@@ -1,0 +1,168 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam class {
+  BorderColor #555555
+  BackgroundColor #EEEEEE
+  ArrowColor #555555
+}
+skinparam enum {
+  BorderColor #555555
+  BackgroundColor #EEEEEE
+}
+
+title "Learning Platform - Design Class Diagram"
+
+' Abstract Classes
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+  + abstract getInfo(): String
+}
+
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - content: String
+  --
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + getContent(): String
+  + updateContent(newContent: String): void
+  + abstract getInfo(): String
+}
+
+' Concrete Classes
+class Student {
+  ' Student-specific operations (e.g., related to their profile, not course interaction)
+  ' Actions like browsing, enrolling, and viewing announcements are mediated by other classes/services.
+}
+
+class Instructor {
+  --
+  + createCourse(title: String, description: String, category: CourseCategory): Course
+  + updateCourseContent(courseId: String, newContent: String): void
+  + sendCourseNotification(courseId: String, message: String, type: NotificationType): void
+  + sendGeneralNotification(message: String, type: NotificationType): void
+}
+
+class UndergraduateCourse {
+}
+
+class PostgraduateCourse {
+}
+
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + updateStatus(newStatus: EnrollmentStatus): void
+  ' References to Student and Course are implicitly handled by the association itself
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  --
+  + getNotificationId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+  + display(): void
+}
+
+class NotificationService {
+  --
+  + sendNotification(notification: Notification): void
+}
+
+' Enums
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDeadline
+  Submission
+}
+
+enum CourseCategory {
+  Undergraduate
+  Postgraduate
+}
+
+' Relationships
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Associations
+' Enrollment as an association class to capture the relationship details
+Student "1" -- "0..*" Enrollment : has
+Course "1" -- "0..*" Enrollment : isFor
+
+' Instructor publishes Courses
+Instructor "1" -- "0..*" Course : publishes >
+
+' Notification relationships
+' NotificationService sends Notifications
+NotificationService "1" --> "*" Notification : sends >
+
+' A Notification is sent to a User (recipient)
+Notification "0..*" --> "1" User : recipient >
+
+' A Notification can be related to a specific Course
+Notification "0..*" --> "0..1" Course : relatedTo >
+
+' Notes for clarity and justification (Practice 25)
+note as N_Student
+  Student's core actions are
+  mediated by other services.
+end note
+Student .. N_Student
+
+note as N_Instructor
+  Instructor methods delegate
+  to services for implementation.
+end note
+Instructor .. N_Instructor
+
+note as N_Enrollment
+  Enrollment is an association class
+  for Student-Course relationship attributes.
+end note
+Enrollment .. N_Enrollment
+
+note as N_Notification
+  Notification holds data;
+  NotificationService handles delivery.
+end note
+NotificationService .. N_Notification
+Notification .. N_Notification
+
+@enduml
+```

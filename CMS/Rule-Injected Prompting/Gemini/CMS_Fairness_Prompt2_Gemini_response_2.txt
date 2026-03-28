@@ -1,0 +1,183 @@
+As a professional Software Engineer, I have carefully analyzed the provided requirements, user stories, use case diagram, and domain model, applying the established good design practices to create a robust, extensible, and maintainable design-level UML Class Diagram.
+
+The design emphasizes:
+1.  **Clear Responsibilities:** Each class has a focused set of attributes and operations, avoiding "god objects."
+2.  **Loose Coupling:** Relationships are designed to minimize dependencies where possible, favoring unidirectional associations, and using dedicated service classes (like `NotificationService`) to decouple concerns.
+3.  **Extensibility:** Abstract classes (`User`, `Course`) allow for easy addition of new user roles or course types without modifying existing code. Enums (`EnrollmentStatus`, `NotificationType`) provide clear, type-safe options.
+4.  **Readability:** Consistent naming conventions (PascalCase for classes, singular nouns), clear multiplicities, and descriptive role names (where necessary) enhance understanding. Explanatory notes are added for complex or crucial elements.
+5.  **Simplicity:** The model avoids over-engineering by introducing new classes only when justified by distinct responsibilities (e.g., `CourseMaterial`, `CourseCatalog`, `Notification`). The `Enrollment` class effectively acts as an association class, capturing attributes of the relationship between `Student` and `Course`.
+
+```plantuml
+@startuml
+' Design-level Class Diagram for Learning Platform
+
+' --- Configuration and Styling ---
+hide empty members
+skinparam class {
+    BackgroundColor White
+    ArrowColor #222222
+    BorderColor #222222
+    FontColor #222222
+    StereotypeFontColor #222222
+    AttributeFontColor #222222
+    OperationFontColor #222222
+}
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam classAttributeIconSize 0 ' Hide attribute icons for a cleaner look
+
+' --- Abstract Base Classes ---
+abstract class User {
+  - id: String
+  - name: String
+  - email: String
+  -- Operations --
+  + getInfo(): String ' Returns basic user information
+}
+
+abstract class Course {
+  - id: String
+  - title: String
+  - description: String
+  - publishedDate: Date
+  -- Operations --
+  + getCourseDetails(): String ' Returns detailed course information
+}
+
+' --- Concrete User Roles ---
+class Student {
+  -- Operations --
+  + browseCourses(catalog: CourseCatalog): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewNotifications(): List<Notification>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + accessCourseMaterial(material: CourseMaterial): String
+}
+
+class Instructor {
+  -- Operations --
+  + publishCourse(course: Course)
+  + updateCourseContent(course: Course, material: CourseMaterial)
+  + sendNotification(notification: Notification)
+}
+
+' --- Concrete Course Types ---
+class UndergraduateCourse extends Course {
+  - credits: Integer
+}
+
+class PostgraduateCourse extends Course {
+  - researchFocus: String
+}
+
+' --- Core Entities ---
+class CourseMaterial {
+  - id: String
+  - title: String
+  - type: String ' e.g., "PDF", "Video", "Link"
+  - contentUrl: String
+  - uploadDate: Date
+  -- Operations --
+  + getMaterialDetails(): String
+  + viewContent(): String
+}
+
+class CourseCatalog {
+  -- Attributes --
+  - courses: List<Course> ' Managed internally or through a repository
+  -- Operations --
+  + getAllCourses(): List<Course>
+  + searchCourses(keyword: String): List<Course>
+}
+
+' --- Enrollment (Association Class) ---
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  -- Operations --
+  + updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+' --- Notification System ---
+class Notification {
+  - id: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  - recipient: User ' Unidirectional reference to the recipient
+  - sender: User ' Unidirectional reference to the sender
+  - relatedCourse: Course ' Optional, unidirectional reference to a related course
+  -- Operations --
+  + getNotificationDetails(): String
+}
+
+enum NotificationType {
+  Announcement
+  Deadline
+  Submission
+}
+
+class NotificationService {
+  -- Operations --
+  + send(notification: Notification)
+  + getNotificationsForUser(user: User): List<Notification>
+}
+
+' --- Relationships ---
+
+' User Hierarchy
+User <|-- Student
+User <|-- Instructor
+
+' Course Hierarchy
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Instructor publishes Courses (bidirectional association for clarity of 'publishedBy')
+Instructor "1" -- "0..*" Course : publishedBy >
+
+' Course contains Course Material
+Course "1" --> "0..*" CourseMaterial : contains >
+
+' Enrollment as an association class between Student and Course
+Student "1" -- "0..*" Enrollment : hasEnrollment >
+Course "1" -- "0..*" Enrollment : managesEnrollment >
+
+' Student browses Course Catalog
+Student --> CourseCatalog : browses >
+
+' Notification relationships
+NotificationService "1" --> "0..*" Notification : manages >
+
+' A Notification has a recipient, sender, and optional related course
+Notification "1" --> "1" User : recipient >
+Notification "1" --> "1" User : sender >
+Notification "0..1" --> "1" Course : relatedTo >
+
+' Enrollment uses EnrollmentStatus
+Enrollment --> EnrollmentStatus
+
+' Notification uses NotificationType
+Notification --> NotificationType
+
+' --- Explanatory Notes ---
+note "Enrollment captures the specific relationship\nbetween a Student and a Course, including its state and date.\nIt acts as an association class." as N1
+Enrollment .. N1
+
+note "CourseCatalog provides a centralized way for students\nto discover and browse available courses, promoting loose coupling." as N2
+CourseCatalog .. N2
+
+note "NotificationService handles the delivery and retrieval\nof notifications, decoupling this concern from core entities." as N3
+NotificationService .. N3
+
+note "The 'publishedBy' association between Instructor and Course\nensures that each course is linked to its publishing instructor." as N4
+Course .. N4
+
+@enduml
+```

@@ -1,0 +1,167 @@
+```plantuml
+@startuml
+' Design-level Class Diagram for the University Learning Platform
+
+' Adherence to Good Design Practices and Instructions:
+' 1. Simplicity: The model is structured to be clear and manageable, breaking down complex concepts (like Course vs. CourseOffering).
+' 2,3,4. Naming: Classes are singular nouns (PascalCase), attributes and methods are camelCase. Names are short and descriptive.
+' 5. Attributes: Attributes are assigned to the most appropriate classes, avoiding overly bloated or sparse classes.
+' 6,7,8. Operations: Each class has a well-defined and manageable set of responsibilities and operations. Data-centric classes (like Material, Notification) have minimal operations.
+' 9,10. Access methods & specifiers: Public methods are provided for class interactions, while internal state is kept private. Access specifiers (+ for public, - for private) are used.
+' 11,12. Relationships: Relationships are reduced and refined. Unidirectional associations are preferred where appropriate for better maintainability and reusability.
+' 15. Multiplicity: Multiplicities are explicitly defined for all associations, representing business rules.
+' 16,17,18,19. Role/Relationship names: Used to clarify the purpose of associations.
+' 20. Association class: Enrollment is correctly modeled as an association class to capture attributes specific to the relationship between Student and CourseOffering.
+' 21. Relationships identified: Aggregation, Composition, Association, Inheritance are used appropriately.
+' 22. Standard UML notations: Consistent use of PlantUML syntax.
+' 23. Descriptive names: All elements have clear, meaningful names.
+' 24. Consistent style: Uniform naming conventions and layout.
+' 25. Explanatory notes: Added for complex sections or design rationale.
+' 26. Avoid Redundancy: The distinction between Course and CourseOffering eliminates redundant Course subclasses.
+' 27. Loose Coupling: NotificationService encapsulates notification logic, reducing direct dependencies between other classes.
+
+' Enums for clear categorization
+enum CourseLevel {
+  Undergraduate
+  Postgraduate
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+  Dropped
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDeadline
+  AssignmentSubmission
+  EnrollmentUpdate
+  CourseMaterialUpdate
+}
+
+' User Hierarchy
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  +updateProfile(name: String, email: String): void
+  +viewNotifications(): List<Notification>
+}
+
+class Student {
+  --
+  +browseCourseOfferings(): List<CourseOffering>
+  +enrollInCourse(offeringId: String): Enrollment
+  +viewCourseContent(offeringId: String): List<Material>
+  +viewAnnouncements(offeringId: String): List<Notification>
+  +trackEnrollmentStatus(enrollmentId: String): EnrollmentStatus
+}
+
+class Instructor {
+  --
+  +createCourseOffering(courseId: String, level: CourseLevel, term: String, year: int, maxCapacity: int): CourseOffering
+  +updateCourseMaterial(offeringId: String, material: Material): void
+  +sendAnnouncement(offeringId: String, message: String): void
+  +viewEnrollments(offeringId: String): List<Enrollment>
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' Course and Course Offering Structure
+class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  --
+  +getCourseDetails(): String
+}
+
+class CourseOffering {
+  -offeringId: String
+  -term: String
+  -year: int
+  -maxCapacity: int
+  -currentEnrollment: int
+  --
+  +addMaterial(material: Material): void
+  +removeMaterial(materialId: String): void
+  +getCourseContent(): List<Material>
+  +getAvailableSeats(): int
+  +enrollStudent(): void
+  +dropStudent(): void
+}
+
+Course "1" -- "0..*" CourseOffering : has >
+CourseOffering "1" -- "1" CourseLevel : of level >
+
+' Course Materials
+class Material {
+  -materialId: String
+  -title: String
+  -type: String ' e.g., PDF, Video, Link
+  -url: String
+  -uploadDate: Date
+  --
+  +getMaterialDetails(): String
+}
+
+CourseOffering "1" -- "0..*" Material : contains >
+
+' Enrollment (Association Class)
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  +updateStatus(newStatus: EnrollmentStatus): void
+  +getEnrollmentDetails(): String
+}
+
+Student "1" o-- "0..*" Enrollment
+CourseOffering "1" o-- "0..*" Enrollment
+
+' Relationship between Enrollment and its status enum
+Enrollment "1" -- "1" EnrollmentStatus : has
+
+' Notification System
+class NotificationService {
+  -notificationQueue: Queue<Notification>
+  --
+  +sendNotification(message: String, recipient: User, type: NotificationType, sourceId: String): void
+  -processQueue(): void
+}
+
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -isRead: boolean
+  -sourceId: String ' e.g., CourseOfferingId, AssignmentId
+  --
+  +markAsRead(): void
+  +getDetails(): String
+}
+
+NotificationService "1" --> "0..*" Notification : manages >
+User "1" <-- "0..*" Notification : receives <
+Notification "1" -- "1" NotificationType : has type >
+
+' Additional associations based on roles and interactions
+Instructor "1" --> "0..*" CourseOffering : creates >
+
+' Notes for clarity and design rationale
+note "Instructors create CourseOfferings.\nStudents enroll in CourseOfferings.\n'Course' is a general template for 'CourseOfferings'." as N1
+CourseOffering .. N1
+
+note "Enrollment is an association class\nbetween Student and CourseOffering,\nrecording specific details of the enrollment\n(date, status) that belong to the relationship itself." as N2
+Enrollment .. N2
+
+note "NotificationService decouples the notification logic\nfrom other system components. It handles sending\nvarious alerts (announcements, deadlines, submissions)\nto users based on their roles and subscribed courses." as N3
+NotificationService .. N3
+
+@enduml
+```

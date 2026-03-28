@@ -1,0 +1,154 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' --- Design Principles Applied ---
+' 1. Simplicity: Focus on core entities and relationships without over-engineering.
+' 2. Naming: Consistent PascalCase for classes/enums, camelCase for attributes/methods.
+' 3. Responsibility: Classes have clear, manageable responsibilities.
+' 4. Attributes & Operations: Carefully assigned, with access specifiers. Access methods (getters) are assumed for public attributes.
+' 5. Relationships: Defined with multiplicities and role names where clarity is needed. Unidirectional where appropriate.
+' 6. Inheritance: Single-level inheritance for User and Course hierarchies.
+' 7. Association Class: 'Enrollment' serves as an association class to capture relationship attributes.
+' 8. Loose Coupling: Services like 'NotificationService' are decoupled from core entities.
+' 9. Readability: Clear structure, consistent style, and explanatory notes.
+
+' --- Abstract Base Classes ---
+abstract class User {
+  -id: String
+  -name: String
+  -email: String
+  --
+  + authenticate(): boolean
+  + getId(): String
+  + getName(): String
+  + getEmail(): String
+}
+
+abstract class Course {
+  -id: String
+  -title: String
+  -description: String
+  --
+  + addMaterial(material: CourseMaterial): void
+  + removeMaterial(material: CourseMaterial): void
+  + getMaterials(): List<CourseMaterial>
+  + getId(): String
+  + getTitle(): String
+  + getDescription(): String
+}
+
+' --- Concrete Classes ---
+class Student {
+  --
+  + enrollInCourse(course: Course): Enrollment
+  + viewCourseResources(course: Course): List<CourseMaterial>
+  + getEnrollments(): List<Enrollment>
+  + viewNotifications(): List<Notification>
+}
+
+class Instructor {
+  --
+  + publishCourse(course: Course): void
+  + updateCourseContent(course: Course, material: CourseMaterial): void
+  + sendNotification(course: Course, message: String, type: NotificationType, recipients: Set<User>): void
+}
+
+class UndergraduateCourse {
+}
+
+class PostgraduateCourse {
+}
+
+class CourseMaterial {
+  -id: String
+  -title: String
+  -url: String
+  -type: String ' e.g., "Lecture Slide", "Reading", "Video"
+  --
+  + getId(): String
+  + getTitle(): String
+  + getUrl(): String
+  + getType(): String
+}
+
+class Enrollment {
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+class Notification {
+  -id: String
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  --
+  + getId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDeadline
+  Submission
+}
+
+class NotificationService {
+  --
+  + sendNotification(notification: Notification, recipients: Set<User>): void
+}
+
+' --- Relationships ---
+
+' User Hierarchy
+User <|-- Student
+User <|-- Instructor
+
+' Course Hierarchy
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Student enrolls in Course, managed by Enrollment association class
+Student "1" -- "0..*" Enrollment : enrollsIn >
+Course "1" -- "0..*" Enrollment : hasEnrollment >
+
+' Course contains CourseMaterial (Composition: CourseMaterial lifecycle is tied to a Course)
+Course "1" *-- "0..*" CourseMaterial : contains >
+
+' Instructor publishes/manages Courses (Unidirectional: Instructor knows the courses it manages)
+Instructor "1" --> "0..*" Course : publishes / manages >
+
+' Instructor uses NotificationService to send notifications (Unidirectional: Instructor depends on the service)
+Instructor --> NotificationService : uses >
+
+' NotificationService sends Notifications (Unidirectional: Service operates on Notification objects)
+NotificationService --> Notification : sends >
+
+' A Course can have many Notifications related to it (e.g., announcements for a specific course)
+Course "1" -- "0..*" Notification : relatesTo >
+
+' A Notification is sent to one or more Users (Unidirectional: Notification knows its recipients)
+' This implies that NotificationService, when sending, will associate the Notification with the target Users.
+Notification "1" -- "0..*" User : recipient >
+
+' --- Explanatory Notes (Practice 25) ---
+note top of Enrollment : Captures a student's participation in a course, including specific status and date.
+note top of Notification : Represents a message sent to users, categorized by its purpose.
+note top of NotificationService : Manages the delivery of notifications to specified recipients.
+note bottom of Instructor : Responsible for course creation, content updates, and initiating notifications.
+note bottom of Student : Can browse courses, manage enrollments, and access course materials/notifications.
+
+@enduml
+```

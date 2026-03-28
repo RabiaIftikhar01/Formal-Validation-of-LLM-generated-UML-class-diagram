@@ -1,0 +1,204 @@
+```plantuml
+@startuml
+!theme plain
+skinparam style strictuml
+skinparam ClassAttributeIconSize 0
+
+title University Digital Learning Environment - Design Class Diagram
+
+' Enums for predefined states/types
+enum MaterialType {
+  DOCUMENT
+  VIDEO
+  LINK
+  OTHER
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+' Abstract Base Classes for extensibility and common properties
+abstract class User {
+  - id: String
+  - name: String
+  - email: String
+  --
+  + User(id: String, name: String, email: String)
+  + {abstract} getInfo(): String
+  + getId(): String
+  + getName(): String
+  + getEmail(): String
+}
+
+abstract class CourseDefinition {
+  - id: String
+  - title: String
+  - description: String
+  --
+  + CourseDefinition(id: String, title: String, description: String)
+  + getId(): String
+  + getTitle(): String
+  + getDescription(): String
+}
+
+' Concrete User Roles inheriting from User
+class Student {
+  + Student(id: String, name: String, email: String)
+  + enrollInCourseOffering(offering: CourseOffering): Enrollment
+  + viewCourseContent(offering: CourseOffering): List<CourseMaterial>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+}
+
+class Instructor {
+  + Instructor(id: String, name: String, email: String)
+  + createCourseOffering(definition: CourseDefinition, term: String, year: int, maxCapacity: int): CourseOffering
+  + updateCourseMaterial(offering: CourseOffering, material: CourseMaterial): void
+  + publishAnnouncement(offering: CourseOffering, title: String, content: String): void
+}
+
+' Concrete Course Types inheriting from CourseDefinition
+class UndergraduateCourse {
+  + UndergraduateCourse(id: String, title: String, description: String)
+}
+
+class PostgraduateCourse {
+  + PostgraduateCourse(id: String, title: String, description: String)
+}
+
+' Core Domain Classes representing key entities
+class CourseOffering {
+  - offeringId: String
+  - term: String
+  - year: int
+  - maxCapacity: int
+  - currentEnrollment: int = 0
+  --
+  + CourseOffering(offeringId: String, definition: CourseDefinition, instructor: Instructor, term: String, year: int, maxCapacity: int)
+  + addCourseMaterial(material: CourseMaterial): void
+  + removeCourseMaterial(materialId: String): void
+  + addAnnouncement(announcement: Announcement): void
+  + getCourseMaterials(): List<CourseMaterial>
+  + getAnnouncements(): List<Announcement>
+  + incrementEnrollment(): void
+  + decrementEnrollment(): void
+  + getOfferingId(): String
+  + getTerm(): String
+  + getYear(): int
+  + getMaxCapacity(): int
+  + getCurrentEnrollment(): int
+}
+
+class CourseMaterial {
+  - id: String
+  - title: String
+  - type: MaterialType
+  - contentUrl: String
+  - uploadDate: Date
+  --
+  + CourseMaterial(id: String, title: String, type: MaterialType, contentUrl: String)
+  + getId(): String
+  + getTitle(): String
+  + getContentUrl(): String
+  + getUploadDate(): Date
+}
+
+class Announcement {
+  - id: String
+  - title: String
+  - content: String
+  - publishDate: Date
+  --
+  + Announcement(id: String, title: String, content: String)
+  + getId(): String
+  + getTitle(): String
+  + getContent(): String
+  + getPublishDate(): Date
+}
+
+class Notification {
+  - id: String
+  - timestamp: Date
+  - message: String
+  - isRead: boolean = false
+  - recipient: User ' Explicit reference to the user receiving this notification
+  --
+  + Notification(id: String, message: String, recipient: User)
+  + markAsRead(): void
+  + getId(): String
+  + getTimestamp(): Date
+  + getMessage(): String
+  + isRead(): boolean
+  + getRecipient(): User
+}
+
+' Association Class to model the relationship between Student and CourseOffering with attributes
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + Enrollment(student: Student, courseOffering: CourseOffering)
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+}
+
+' Service Class for cross-cutting concerns (e.g., sending notifications)
+class NotificationService << (S,#ADD1B2) Service >> {
+  + sendNotification(recipient: User, notification: Notification): void
+  + createAndSendCourseAnnouncementNotification(courseOffering: CourseOffering, announcement: Announcement): void
+}
+
+' Relationships between classes
+
+' Inheritance (Generalization)
+User <|-- Student
+User <|-- Instructor
+
+CourseDefinition <|-- UndergraduateCourse
+CourseDefinition <|-- PostgraduateCourse
+
+' Associations and Aggregations/Compositions
+CourseDefinition "1" --o "1..*" CourseOffering : defines >
+' An offering is defined by one course definition. A definition can have multiple offerings.
+
+CourseOffering "1" *-- "0..*" CourseMaterial : contains >
+' Course materials are part of a specific course offering (composition).
+
+CourseOffering "1" *-- "0..*" Announcement : publishes >
+' Announcements are specific to a course offering (composition).
+
+CourseOffering "0..*" --> "1" Instructor : taughtBy >
+' A course offering is taught by one instructor. An instructor can teach multiple offerings (unidirectional).
+
+' Association Class Enrollment linking Student and CourseOffering
+Student "1" -- "0..*" Enrollment
+CourseOffering "1" -- "0..*" Enrollment
+(Student, CourseOffering) .. Enrollment
+
+' Dependencies/Associations with Enums
+CourseMaterial --> MaterialType
+Enrollment --> EnrollmentStatus
+
+' Notification relationships
+Notification "0..*" --> "1" User : targets >
+' A notification targets a specific user.
+
+' Service Dependencies (Loose Coupling)
+Instructor ..> NotificationService : uses >
+' Instructor uses the notification service to send announcements.
+
+CourseOffering ..> NotificationService : uses >
+' CourseOffering uses the notification service when an announcement is added (e.g., to notify students).
+
+NotificationService ..> Notification : creates/sends >
+' NotificationService is responsible for creating and sending notification objects.
+
+NotificationService ..> User : deliversTo >
+' NotificationService ultimately delivers notifications to users.
+
+@endumuml
+```

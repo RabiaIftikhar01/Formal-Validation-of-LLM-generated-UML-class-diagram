@@ -1,0 +1,170 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+title University Online Learning System - Design Class Diagram
+
+' Good Design Practices applied:
+' - Simplicity: Focus on core entities and their interactions.
+' - Naming: Singular nouns, PascalCase for classes, camelCase for attributes/methods.
+' - Encapsulation: Attributes are private, operations are public (or protected/private as needed for internal logic).
+' - Responsibility: Classes have a clear, manageable set of responsibilities.
+' - Loose Coupling: Favor unidirectional associations and dedicated service classes (e.g., NotificationService).
+' - Readability: Use clear relationship names, multiplicities, and notes.
+
+' Enums for better type safety and clarity
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum CourseType {
+  Undergraduate
+  Postgraduate
+  Vocational
+}
+
+' Abstract Base Class for Users
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + login(): Boolean
+  + logout(): Boolean
+  + abstract getDetails(): String
+}
+
+' Concrete User Roles inheriting from User
+class Student {
+  --
+  + browseCourses(): List<CourseOffering>
+  + enrollInCourse(offering: CourseOffering): Enrollment
+  + viewAnnouncements(offering: CourseOffering): List<Notification>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + viewCourseMaterial(material: CourseMaterial): void
+}
+
+class Instructor {
+  --
+  + createCourseOffering(course: Course, semester: String, year: int, type: CourseType): CourseOffering
+  + updateCourseOfferingDetails(offering: CourseOffering, newDetails: Map<String, String>): void
+  + addCourseMaterial(offering: CourseOffering, title: String, type: String, url: String): CourseMaterial
+  + updateCourseMaterial(material: CourseMaterial, newDetails: Map<String, String>): void
+  + sendAnnouncement(offering: CourseOffering, message: String): Notification
+}
+
+' Core Course-related classes
+class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + getCourseDetails(): String
+}
+
+class CourseOffering {
+  - offeringId: String
+  - semester: String
+  - year: int
+  - type: CourseType
+  - startDate: Date
+  - endDate: Date
+  --
+  + publish(): void
+  + updateDetails(newDetails: Map<String, String>): void
+  + isPublished(): Boolean
+}
+
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - contentType: String
+  - uploadDate: Date
+  - contentUrl: String
+  --
+  + viewContent(): Stream
+  + getDetails(): String
+}
+
+' Enrollment as an Association Class
+' This captures specific details of a student's enrollment in a course offering.
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getStatus(): EnrollmentStatus
+}
+
+' Notification System classes
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: String ' e.g., "Announcement", "Deadline", "Submission"
+  --
+  + getDetails(): String
+}
+
+class NotificationService {
+  --
+  + sendNotification(notification: Notification, recipient: User): Boolean
+}
+
+' ======================================================================
+' Relationships
+' ======================================================================
+
+' Inheritance Relationships
+User <|-- Student
+User <|-- Instructor
+
+' Enum Usage (Dependencies)
+EnrollmentStatus <|.. Enrollment : uses
+CourseType <|.. CourseOffering : uses
+
+' Core Course/Offering/Material Relationships
+' A CourseOffering is an instance of a Course (e.g., "Calculus I" offered in "Fall 2023").
+Course "1" <-- "0..*" CourseOffering : offeredAs <
+note on link: Unidirectional from CourseOffering to Course for loose coupling.
+It means a CourseOffering knows which Course it offers.
+
+' Instructors manage (create, update) CourseOfferings.
+Instructor "1" --> "0..*" CourseOffering : manages >
+
+' A CourseOffering contains multiple CourseMaterials.
+CourseOffering "1" --> "0..*" CourseMaterial : contains >
+
+' Enrollment Relationship (Association Class)
+' This models the many-to-many relationship between Student and CourseOffering,
+' with additional attributes specific to the enrollment itself.
+Student "1" -- "0..*" Enrollment
+CourseOffering "1" -- "0..*" Enrollment
+note "Enrollment captures specific details of a student's enrollment in an offering." as N_Enrollment
+Enrollment .. N_Enrollment
+
+' Notification System Relationships
+' Instructors create notifications (e.g., announcements, deadlines).
+Instructor "1" --> "0..*" Notification : creates >
+
+' A notification is sent to a specific user.
+Notification "1" --> "1" User : sentTo >
+
+' The NotificationService is responsible for sending notifications.
+' It decouples the sending mechanism from the business logic.
+NotificationService "1" --> "1" Notification : sends >
+note "NotificationService decouples notification sending logic from business logic, promoting reusability." as N_NotificationService
+NotificationService .. N_NotificationService
+
+' Notes for additional clarity
+note "This class represents a generic catalog course description." as N_Course
+Course .. N_Course
+
+note "This class represents a specific instance of a course offered in a particular semester/year." as N_CourseOffering
+CourseOffering .. N_CourseOffering
+
+@enduml
+```

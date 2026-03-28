@@ -1,0 +1,177 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide empty members
+
+' Design Practices Followed:
+' - Simplicity (1, 27): Model is kept concise, avoiding overbuilding.
+' - Naming Conventions (2, 3, 4, 23): Classes/Enums are PascalCase singular nouns, attributes/methods camelCase.
+' - Attribute Assignment (5): Attributes are assigned to appropriate classes.
+' - Operation Assignment (6, 8): Classes have a manageable set of responsibilities.
+' - Access Methods (9): Public getters for attributes that need to be viewed.
+' - Access Specifiers (10): Attributes are private (-), operations are public (+).
+' - Reduced Relationships (11): Focused on essential relationships.
+' - Unidirectional Associations (12): Used where appropriate for easier maintenance.
+' - Multiplicity (15): Defined for all associations.
+' - Role Names (16, 17): Used to clarify relationship purpose.
+' - Association Class (20): Enrollment is modeled as an association class.
+' - Descriptive Names (23): Clear names for classes, attributes, and methods.
+' - Consistent Style (24): Standard UML notations and consistent naming.
+' - Explanatory Notes (25): Added for complex decisions.
+' - Avoid Redundancy (26): Information represented once (e.g., CourseCategory enum).
+' - Loose Coupling (27): Classes interact via well-defined interfaces.
+
+' -------------------------------------------------------------------
+' 1. User and Roles
+' -------------------------------------------------------------------
+abstract class User {
+  - id: String
+  - name: String
+  - email: String
+  -- Operations --
+  + getId(): String
+  + getName(): String
+  + getEmail(): String
+}
+
+class Student {
+  -- Operations --
+  + browseCourses(): List<Course> ' US-S1: Student browses available courses
+  + enrollInCourse(course: Course): Enrollment ' US-S2: Student enrolls in a course
+  + viewAnnouncements(): List<Notification> ' US-S3: Student views announcements
+  + trackEnrollmentStatus(): List<Enrollment> ' US-S4: Student tracks enrollment status
+}
+
+class Instructor {
+  -- Operations --
+  + createCourse(title: String, description: String, category: CourseCategory): Course ' US-I1: Instructor creates new course
+  + updateCourseContent(course: Course, materialId: String, newContent: String): void ' US-I2: Instructor updates course materials
+  + sendCourseNotification(course: Course, message: String): void ' US-I3: Instructor sends notifications related to a course
+}
+
+User <|-- Student : extends
+User <|-- Instructor : extends
+
+' -------------------------------------------------------------------
+' 2. Course and Content
+' -------------------------------------------------------------------
+abstract class Course {
+  - id: String
+  - title: String
+  - description: String
+  - category: CourseCategory
+  - publishedBy: Instructor ' Captures which instructor published this course
+  -- Operations --
+  + getId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + getCategory(): CourseCategory
+  + getPublishedBy(): Instructor
+  + addMaterial(material: CourseMaterial): void ' Internal management of course content
+  + removeMaterial(materialId: String): void ' Internal management of course content
+  + getCourseMaterials(): List<CourseMaterial>
+  + getEnrolledStudents(): List<Student> ' Helper for sending notifications to enrolled students
+}
+
+enum CourseCategory {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+class CourseMaterial {
+  - id: String
+  - title: String
+  - content: String ' e.g., URL, text content, file path
+  -- Operations --
+  + getId(): String
+  + getTitle(): String
+  + getContent(): String
+  + viewContent(): String ' Student access to material content
+}
+
+Course "1" *-- "0..*" CourseMaterial : contains >
+' Composition: A Course contains 0 or more CourseMaterial instances.
+' A CourseMaterial belongs to exactly one Course.
+
+' -------------------------------------------------------------------
+' 3. Enrollment
+' -------------------------------------------------------------------
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  -- Operations --
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + updateStatus(newStatus: EnrollmentStatus): void ' Update enrollment status (e.g., active, completed, waitlisted)
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+}
+
+' Enrollment is an association class for the many-to-many relationship between Student and Course.
+' It captures attributes specific to the enrollment instance.
+Student "1" -- "0..*" Enrollment : has >
+Course "1" -- "0..*" Enrollment : enrolls >
+
+' -------------------------------------------------------------------
+' 4. Notifications
+' -------------------------------------------------------------------
+class Notification {
+  - id: String
+  - message: String
+  - timestamp: Date
+  - recipient: User ' The user who is to receive this notification
+  - relatedCourse: Course ' The course this notification is about (optional)
+  -- Operations --
+  + getId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getRecipient(): User
+  + getRelatedCourse(): Course
+}
+
+class NotificationService {
+  -- Operations --
+  + sendNotification(notification: Notification): void ' US-SYS3: System delivers notifications
+}
+
+NotificationService "1" --> "0..*" Notification : sends >
+' The NotificationService sends 0 or more Notification objects. Unidirectional link.
+
+Notification "1" --> "1" User : to >
+' A Notification is sent to exactly one User. Unidirectional link.
+
+Notification "0..1" --> "1" Course : about >
+' A Notification can optionally be about one specific Course. Unidirectional link.
+
+' -------------------------------------------------------------------
+' 5. Key Relationships and Interactions
+' -------------------------------------------------------------------
+Course "0..*" --> "1" Instructor : publishedBy >
+' A Course is published by exactly one Instructor. An Instructor can publish 0 or more Courses.
+' This relationship is derived from the 'publishedBy' attribute in the Course class.
+
+' -------------------------------------------------------------------
+' Explanatory Notes (Practice 25)
+' -------------------------------------------------------------------
+note "CourseCategory enum replaces Undergraduate/Postgraduate subclasses for simplicity and adherence to Practice 7 (no distinct behaviors identified for subclasses)." as N1
+Course -[hidden]- N1
+
+note "Enrollment is modeled as an association class to capture attributes (enrollmentDate, status) specific to the Student-Course relationship (Practice 20)." as N2
+Enrollment -[hidden]- N2
+
+note "Instructor.createCourse() will internally set the 'publishedBy' attribute of the newly created Course instance to the calling Instructor." as N3
+Instructor -[hidden]- N3
+
+note "Instructor operations like createCourse and updateCourseContent imply system authorization checks (US-SYS1) which are handled at a lower level of design, not explicitly modeled here for simplicity." as N4
+Instructor -[hidden]- N4
+
+note "Student.browseCourses() will interact with a system component (e.g., a CourseRepository or service) to retrieve courses, which is not explicitly modeled for diagram simplicity (Practice 1)." as N5
+Student -[hidden]- N5
+
+@enduml
+```

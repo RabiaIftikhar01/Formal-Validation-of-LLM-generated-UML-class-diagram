@@ -1,0 +1,167 @@
+As a professional Software Engineer, I have carefully analyzed the provided problem description, user stories, use case diagram, and domain model, applying the established design practices to generate a robust, extensible, and maintainable design-level class diagram.
+
+My design philosophy for this task focuses on:
+1.  **Clarity and Simplicity:** Avoiding over-engineering while ensuring all core requirements are met.
+2.  **Separation of Concerns:** Distributing responsibilities logically among classes (e.g., `Course` vs. `CourseOffering`, `Notification` vs. `NotificationService`).
+3.  **Loose Coupling:** Minimizing dependencies between classes to improve maintainability and reusability.
+4.  **Extensibility:** Designing classes and relationships that can adapt to future changes without major refactoring.
+5.  **Adherence to UML Best Practices:** Consistent naming, multiplicity, and relationship types.
+
+Here's the rationale for key design decisions:
+
+*   **User Hierarchy:** The `User` abstract class serves as a base for `Student` and `Instructor`, encapsulating common attributes and behaviors like `login()` and `logout()`. Each role (`Student`, `Instructor`) then extends `User` and defines its specific actions and responsibilities.
+*   **Course vs. CourseOffering:** To address the requirement that "course offerings can vary by level" and "instructors create and release course offerings," I've introduced two distinct classes:
+    *   `Course`: Represents the abstract definition of a course (e.g., "Introduction to Computer Science"). It has a `CourseLevel` enum to specify its academic level.
+    *   `CourseOffering`: Represents a specific instance of a `Course` being taught during a particular `semester` and `year`. It includes details like `maxStudents`, `courseContent`, and `OfferingStatus`. This separation allows for multiple offerings of the same course and makes the system more flexible.
+*   **Enrollment as an Association Class:** The `Enrollment` class effectively models the relationship between a `Student` and a `CourseOffering`, capturing specific details like `enrollmentDate` and `EnrollmentStatus`. This adheres to the practice of using association classes when the link itself has attributes.
+*   **Notification System:**
+    *   `Notification`: Encapsulates the details of a single notification message (ID, message content, timestamp, type).
+    *   `NotificationService`: A dedicated service class responsible for the logic of creating and sending notifications. This decouples the act of sending from the entities that trigger notifications (e.g., `Instructor`).
+*   **Enums for Status and Type:** `CourseLevel`, `OfferingStatus`, `EnrollmentStatus`, and `NotificationType` are modeled as enums to provide clear, constrained, and self-documenting values, improving data integrity and readability.
+*   **Unidirectional Associations:** Relationships are refined to be unidirectional where appropriate (e.g., `CourseOffering` *references* a `Course`, but `Course` doesn't necessarily need to know all its offerings directly at this level of detail for simplicity).
+*   **Attribute and Operation Visibility:** Attributes are typically private (`-`) to enforce encapsulation. Core operations are public (`+`) for interaction. Accessor (get/set) methods are assumed to exist for private attributes as per good practice #9, but are not explicitly listed for brevity.
+*   **Instructor Responsibilities:** The `Instructor` class contains methods that reflect their core authorized actions, such as `createCourseOffering()`, `updateCourseMaterial()`, and `sendCourseNotification()`. These methods would internally interact with `CourseOffering` and `NotificationService` to fulfill their tasks.
+*   **Student Responsibilities:** The `Student` class includes methods for their primary interactions, like `enrollInCourse()`, `viewCourseContent()`, and `trackMyEnrollments()`.
+
+This design aims to be easily understandable by developers, testers, and future maintainers, providing a clear blueprint for implementation.
+
+```plantuml
+@startuml
+' Design Level Class Diagram for Learning Platform
+' Adheres to good design practices and instructions provided.
+
+' --- Enums for Clarity and Constraint ---
+enum CourseLevel {
+  UNDERGRADUATE
+  POSTGRADUATE
+  DOCTORAL
+}
+
+enum OfferingStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  ASSIGNMENT_DEADLINE
+  SUBMISSION_REMINDER
+  GENERAL_UPDATE
+}
+
+' --- Core Entities ---
+
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  +login(): void
+  +logout(): void
+  +abstract getDetails(): String
+}
+
+class Student {
+  ' Student-specific methods representing their primary actions and interactions
+  +enrollInCourse(offering: CourseOffering): Enrollment
+  +viewCourseContent(offering: CourseOffering): Map<String, String> ' Returns content map or reference
+  +trackMyEnrollments(): List<Enrollment> ' Retrieves enrollments associated with this student
+}
+
+class Instructor {
+  ' Instructor-specific methods representing their authorized actions
+  +createCourseOffering(courseDef: Course, semester: String, year: int, maxStudents: int): CourseOffering
+  +updateCourseMaterial(offering: CourseOffering, materialId: String, newContent: String): void
+  +sendCourseNotification(offering: CourseOffering, message: String, type: NotificationType): void
+}
+
+' Inheritance: Student and Instructor are specific types of Users
+User <|-- Student
+User <|-- Instructor
+
+class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  +getDetails(): String ' Provides general course information
+}
+
+' Course has a specific academic level
+Course "1" --> "1" CourseLevel : hasLevel >
+
+class CourseOffering {
+  -offeringId: String
+  -semester: String
+  -year: int
+  -maxStudents: int
+  -courseContent: Map<String, String> ' Key: materialId (e.g., "Lecture1"), Value: content reference/URL
+  +addMaterial(materialId: String, content: String): void
+  +updateMaterial(materialId: String, newContent: String): void
+  +removeMaterial(materialId: String): void
+  +releaseOffering(): void ' Makes the offering available for enrollment
+  +getCourseContent(): Map<String, String>
+}
+
+' Relationships for Course and CourseOffering
+Course "1" <-- "0..*" CourseOffering : offers >
+Instructor "1" --> "0..*" CourseOffering : teaches >
+CourseOffering "1" --> "1" OfferingStatus : hasStatus >
+
+' Enrollment: An association class linking Student and CourseOffering
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  +updateStatus(newStatus: EnrollmentStatus): void
+  +getEnrollmentDetails(): String
+}
+
+Student "1" --> "0..*" Enrollment : has >
+CourseOffering "1" --> "0..*" Enrollment : includes >
+Enrollment "1" --> "1" EnrollmentStatus : hasStatus >
+
+' Notification System
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  +getNotificationDetails(): String
+}
+
+Notification "1" --> "1" NotificationType : hasType >
+
+class NotificationService {
+  +sendNotification(notification: Notification, recipients: List<User>): void
+  +createNotification(sender: User, relatedOffering: CourseOffering, message: String, type: NotificationType): Notification
+}
+
+NotificationService "1" --> "0..*" Notification : manages >
+User "1" --> "0..*" Notification : sends > (sender)
+CourseOffering "1" "0..*" <-- "1" Notification : relatesTo >
+
+' --- Explanatory Notes for Complex Sections (Practice #25) ---
+note "A Course defines the curriculum and content blueprint.\nA CourseOffering is a specific, scheduled instance of that course\nfor a particular academic period, managed by an Instructor." as N1
+Course .. N1
+CourseOffering .. N1
+
+note "Enrollment acts as an association class, capturing the specific\nstatus and date of a student's participation in a CourseOffering." as N2
+Enrollment .. N2
+
+note "NotificationService is a dedicated component responsible for\nhandling the creation and delivery mechanism of all system notifications." as N3
+NotificationService .. N3
+
+note "Attributes are private; accessors (get/set methods)\nare assumed to exist implicitly for data retrieval/modification\nas per design practice #9, and are not explicitly listed for brevity." as N4
+User .. N4
+Course .. N4
+CourseOffering .. N4
+Enrollment .. N4
+Notification .. N4
+
+@enduml
+```

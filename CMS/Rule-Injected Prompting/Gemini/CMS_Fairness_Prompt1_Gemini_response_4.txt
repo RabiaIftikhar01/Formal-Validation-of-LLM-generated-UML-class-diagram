@@ -1,0 +1,196 @@
+```plantuml
+@startuml
+!theme mars
+
+' Design Principles and Practices Applied:
+' 1. Simplicity: The model balances detail with clarity, using specific classes like CourseOffering and CourseMaterial
+'    to avoid cluttering core entities and ensure clear responsibilities.
+' 2-4. Naming Conventions: Classes use PascalCase (e.g., Student, CourseOffering), singular nouns.
+'    Attributes and methods use camelCase (e.g., userId, enrollInCourse). Names are short and descriptive.
+' 5. Attribute Assignment: Attributes are carefully assigned to the most appropriate classes (e.g., enrollmentDate to Enrollment).
+' 6-8. Operations & Responsibilities: Each class has a clear, manageable set of operations. Service classes
+'    (EnrollmentService, NotificationService) encapsulate core business logic and cross-cutting concerns.
+' 9-10. Access Methods & Specifiers: Public getters are provided for key attributes. Operations are assigned
+'    '+' (public) for external interaction and '-' (private, implicitly for helper methods not shown) for internal logic.
+' 11-12. Relationships: Relationships are reduced where possible and refined to be unidirectional,
+'    promoting loose coupling and reusability.
+' 13. Inheritance: Single-level inheritance is used for User and Course hierarchies, avoiding multi-level complexity.
+' 15. Multiplicity: All associations explicitly define their multiplicity, reflecting business rules.
+' 16-19. Relationship Names/Roles: Descriptive role names or relationship names are used to clarify the purpose of associations.
+' 20. Association Class: 'Enrollment' serves as an association class, capturing attributes specific to the
+'    relationship between 'Student' and 'CourseOffering'.
+' 21. Relationship Identification: All necessary interactions and relationships identified from the problem description.
+' 23-24. Descriptive Names & Consistent Style: Maintained throughout the diagram for improved readability and understanding.
+' 27. Loose Coupling: Achieved by using service classes for complex operations (e.g., enrollment, notifications)
+'    and favoring delegation, reducing direct dependencies between core domain entities.
+
+' -----------------------------------
+' Core User Management
+' -----------------------------------
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  +getUserId(): String
+  +getName(): String
+  +getEmail(): String
+  +abstract receiveNotification(notification: Notification)
+}
+
+class Student {
+  +browseAvailableCourseOfferings(): List<CourseOffering>
+  +enrollInCourse(courseOffering: CourseOffering)
+  +viewCourseAnnouncements(courseOffering: CourseOffering): List<Notification>
+  +trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  +viewCourseContent(courseMaterial: CourseMaterial)
+  +receiveNotification(notification: Notification)
+}
+
+class Instructor {
+  +createCourseOffering(course: Course, year: int, semester: String, maxCapacity: int): CourseOffering
+  +updateCourseMaterial(courseOffering: CourseOffering, material: CourseMaterial)
+  +publishCourseOffering(courseOffering: CourseOffering)
+  +sendCourseAnnouncement(courseOffering: CourseOffering, subject: String, body: String)
+  +receiveNotification(notification: Notification)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' -----------------------------------
+' Course Structure
+' -----------------------------------
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  +getCourseId(): String
+  +getTitle(): String
+  +getDescription(): String
+}
+
+class UndergraduateCourse {
+  -credits: int
+  +getCredits(): int
+}
+
+class PostgraduateCourse {
+  -researchComponentRequired: boolean
+  +isResearchComponentRequired(): boolean
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+class CourseOffering {
+  -offeringId: String
+  -year: int
+  -semester: String
+  -maxCapacity: int
+  -currentEnrollmentCount: int
+  -isPublished: boolean = false
+  +getOfferingId(): String
+  +getYear(): int
+  +getSemester(): String
+  +getMaxCapacity(): int
+  +getCurrentEnrollmentCount(): int
+  +isPublished(): boolean
+  +addMaterial(material: CourseMaterial)
+  +removeMaterial(material: CourseMaterial)
+  +incrementEnrollmentCount()
+  +decrementEnrollmentCount()
+}
+
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -contentType: String ' e.g., PDF, Video, URL
+  -uploadDate: Date
+  -contentUrl: String
+  +getMaterialId(): String
+  +getTitle(): String
+  +getContentType(): String
+  +getUploadDate(): Date
+  +getContentUrl(): String
+  +viewContent()
+}
+
+CourseOffering "1" --> "1" Course : `refersTo`
+CourseOffering "1" *-- "0..*" CourseMaterial : `contains`
+
+Instructor "1" --> "0..*" CourseOffering : `manages`
+
+' -----------------------------------
+' Enrollment
+' -----------------------------------
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  +getEnrollmentId(): String
+  +getEnrollmentDate(): Date
+  +getStatus(): EnrollmentStatus
+  +updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+  Dropped
+}
+
+Student "1" -- "0..*" Enrollment : `has`
+CourseOffering "1" -- "0..*" Enrollment : `has`
+
+' -----------------------------------
+' Services
+' -----------------------------------
+class EnrollmentService {
+  +enrollStudent(student: Student, courseOffering: CourseOffering): Enrollment
+  +updateEnrollmentStatus(enrollment: Enrollment, newStatus: EnrollmentStatus)
+  +getStudentEnrollments(student: Student): List<Enrollment>
+  +getCourseOfferingEnrollments(courseOffering: CourseOffering): List<Enrollment>
+}
+
+class NotificationService {
+  +sendNotification(recipient: User, subject: String, body: String)
+  +sendBulkNotification(recipients: List<User>, subject: String, body: String)
+}
+
+class Notification {
+  -notificationId: String
+  -subject: String
+  -body: String
+  -timestamp: Date
+  -isRead: boolean = false
+  -recipient: User 
+  +getNotificationId(): String
+  +getSubject(): String
+  +getBody(): String
+  +getTimestamp(): Date
+  +isRead(): boolean
+  +markAsRead()
+  +getRecipient(): User
+}
+
+' Service interactions / Dependencies
+Student ..> EnrollmentService : `uses`
+Instructor ..> NotificationService : `uses`
+Instructor ..> EnrollmentService : `uses` > `views_enrollments_via`
+CourseOffering ..> EnrollmentService : `notifies` > `of_capacity_changes`
+NotificationService ..> Notification : `creates`
+
+' Other dependencies
+Student ..> CourseOffering : `browses`
+Student ..> CourseMaterial : `views`
+
+' Notes on System-level Responsibilities (from User Stories):
+' - Authorization for instructor actions: This is implicitly handled by the design,
+'   where only Instructor objects have methods for creating/updating courses.
+'   A dedicated AuthorizationService could be added for more complex scenarios,
+'   but is omitted for simplicity as per instructions.
+' - Recording enrollment date/status: Managed by the EnrollmentService.
+' - Delivering notifications: Handled by the NotificationService.
+@enduml
+```

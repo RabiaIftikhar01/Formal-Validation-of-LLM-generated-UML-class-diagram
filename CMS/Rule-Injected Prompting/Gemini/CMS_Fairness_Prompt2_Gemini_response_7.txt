@@ -1,0 +1,161 @@
+Here is the design-level UML class diagram in PlantUML format, incorporating the provided problem description, user stories, use case diagram, domain model, and adhering to all the specified good design practices. The design prioritizes simplicity, maintainability, extensibility, and clear communication.
+
+```plantuml
+@startuml
+!theme plain
+
+' Global settings for clarity and consistency
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam classArrowFontSize 10
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam noteBackgroundColor #FFD700
+skinparam noteBorderColor #DAA520
+
+' Title and explanatory notes
+title Learning Platform Class Diagram
+note "Design-level diagram focusing on core entities and their interactions.\nAdheres to good design practices for extensibility and maintainability.\n\nKey design choices:\n- Enums for specific types (e.g., EnrollmentStatus, NotificationType, CourseCategory) to simplify models.\n- Notification class to encapsulate notification details, decoupled from NotificationService.\n- CourseResource class to manage course content, allowing for diverse resource types.\n- Enrollment modeled as an association class to capture properties of the student-course relationship." as N1
+
+' --- Enums ---
+' Enums are used for fixed sets of values, improving type safety and readability.
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDeadline
+  Submission
+}
+
+enum CourseCategory {
+  Undergraduate
+  Postgraduate
+}
+
+' --- Abstract Base Class ---
+' User serves as a base for different types of participants, promoting reuse.
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + login(): void
+  + logout(): void
+  + getInfo(): String
+}
+
+' --- Concrete User Classes ---
+' Student and Instructor inherit common User properties and add specific behaviors.
+class Student {
+  --
+  + browseCourses(): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewAnnouncements(): List<Notification>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + viewCourseResources(course: Course): List<CourseResource>
+}
+
+class Instructor {
+  --
+  + publishCourse(course: Course): void
+  + updateCourseContent(course: Course, resource: CourseResource): void
+  + sendNotification(notification: Notification, recipient: User): void
+}
+
+' --- Core Domain Classes ---
+class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - category: CourseCategory
+  --
+  + getInfo(): String
+  + addResource(resource: CourseResource): void
+  + removeResource(resource: CourseResource): void
+}
+
+class CourseResource {
+  - resourceId: String
+  - title: String
+  - type: String
+  - url: String
+  --
+  + getDetails(): String
+}
+
+' Enrollment is modeled as an association class, capturing properties specific to the relationship
+' between a Student and a Course, like enrollment date and status.
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus): void
+}
+
+' Notification class encapsulates the data of a message.
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  --
+  + getDetails(): String
+}
+
+' NotificationService handles the logic of sending notifications,
+' promoting loose coupling and reusability.
+class NotificationService {
+  --
+  + sendNotification(notification: Notification, recipient: User): void
+}
+
+' --- Relationships ---
+
+' Generalization (Inheritance)
+User <|-- Student
+User <|-- Instructor
+
+' Associations
+' Instructor manages (publishes and updates) multiple courses.
+Instructor "1" -- "0..*" Course : manages >
+
+' A Course can have multiple CourseResources (e.g., documents, videos).
+Course "1" -- "0..*" CourseResource : has >
+
+' Association Class: Enrollment
+' This represents the 'enrolls' relationship between Student and Course,
+' where the relationship itself has attributes (enrollmentId, enrollmentDate, status).
+Student "1" -- "0..*" Course : enrolls
+Student_enrolls_Course .. Enrollment
+' Note: The line 'Student_enrolls_Course .. Enrollment' links the association
+' named 'enrolls' to the class 'Enrollment', indicating it's an association class.
+
+' Notification relationships:
+' A Notification is sent by one User (sender) and received by one User (recipient).
+Notification "1" --> "1" User : sender >
+Notification "1" --> "1" User : recipient >
+
+' A Notification can optionally pertain to a specific Course.
+Notification "0..1" --> "1" Course : pertainsTo >
+
+' Instructor uses the NotificationService to send notifications.
+Instructor "1" --> "1" NotificationService : uses >
+
+' NotificationService has a dependency on Notification, as it operates on Notification objects.
+NotificationService .> Notification
+
+' --- Traceability Notes (linking back to User Stories and System Stories) ---
+note right of Student : User Story:\n- US-S1: Browse Courses\n- US-S2: Enroll in Course\n- US-S3: View Announcements\n- US-S4: Track Enrollment Status
+note right of Instructor : User Story:\n- US-I1: Create Course\n- US-I2: Update Course Content\n- US-I3: Send Notifications
+note left of NotificationService : System Story:\n- US-SYS3: Deliver Notifications
+note right of EnrollmentStatus : System Story:\n- US-SYS2: Record Enrollment Date and Status
+note top of Instructor : System Story:\n- US-SYS1: Authorize Instructor Actions
+
+@enduml
+```

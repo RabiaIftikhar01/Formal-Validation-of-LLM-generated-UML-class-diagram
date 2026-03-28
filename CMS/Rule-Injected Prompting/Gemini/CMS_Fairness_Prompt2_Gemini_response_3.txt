@@ -1,0 +1,222 @@
+Here is the design-level UML Class Diagram in PlantUML format, incorporating the provided user stories, use case diagram, domain model, and adhering to good design practices for extensibility and maintainability.
+
+The design focuses on:
+*   **Clear Responsibilities:** Each class has a well-defined purpose.
+*   **Loose Coupling:** Classes interact through well-defined interfaces (methods) and managed relationships.
+*   **Simplicity:** Avoids over-engineering by using attributes for categories instead of deep inheritance hierarchies when behavior doesn't significantly differ.
+*   **Appropriate Relationships:** Uses generalization, aggregation, and association classes effectively, with determined multiplicities and roles.
+*   **Access Control:** Uses public and private access modifiers for attributes and operations.
+*   **Readability:** Consistent naming conventions and layout.
+
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam class {
+  BorderColor #34495E
+  BackgroundColor #ECF0F1
+  HeaderBackgroundColor #BDC3C7
+  ArrowColor #34495E
+  FontColor #2C3E50
+}
+skinparam enum {
+  BorderColor #34495E
+  BackgroundColor #ECF0F1
+  HeaderBackgroundColor #BDC3C7
+  ArrowColor #34495E
+  FontColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFCC
+  BorderColor #999966
+  FontColor #333333
+}
+
+title Learning Platform Design Class Diagram
+
+' --------------------------------------------------------------------------------
+' Classes
+' --------------------------------------------------------------------------------
+
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  -- Operations --
+  + {abstract} getUserDetails(): String
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+}
+
+class Student {
+  -- Operations --
+  + browseAvailableCourses(): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewCourseAnnouncements(course: Course): List<Notification>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + getUserDetails(): String
+}
+
+class Instructor {
+  -- Operations --
+  + createCourse(title: String, description: String, category: CourseCategory): Course
+  + updateCourseContent(course: Course, materialId: String, newContent: String): void
+  + addCourseMaterial(course: Course, material: CourseMaterial): void
+  + sendCourseNotification(course: Course, message: String): void
+  + getUserDetails(): String
+}
+
+class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - category: CourseCategory
+  - publishedBy: Instructor
+  - materials: List<CourseMaterial>
+  -- Operations --
+  + Course(id: String, title: String, description: String, category: CourseCategory, instructor: Instructor)
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + getCategory(): CourseCategory
+  + getPublishedBy(): Instructor
+  + addCourseMaterial(material: CourseMaterial): void
+  + updateCourseMaterial(materialId: String, newContent: String): void
+  + getCourseMaterials(): List<CourseMaterial>
+  + getCourseInfo(): String
+}
+
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  - student: Student
+  - course: Course
+  -- Operations --
+  + Enrollment(student: Student, course: Course, date: Date, status: EnrollmentStatus)
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + setStatus(newStatus: EnrollmentStatus): void
+  + getStudent(): Student
+  + getCourse(): Course
+}
+
+abstract class CourseMaterial {
+  - materialId: String
+  - title: String
+  - uploadDate: Date
+  -- Operations --
+  + {abstract} getMaterialInfo(): String
+  + getMaterialId(): String
+  + getTitle(): String
+  + getUploadDate(): Date
+  + updateContent(newContent: String): void
+}
+
+class DocumentMaterial extends CourseMaterial {
+  - content: String
+  -- Operations --
+  + DocumentMaterial(id: String, title: String, uploadDate: Date, content: String)
+  + getMaterialInfo(): String
+  + updateContent(newContent: String): void
+}
+
+class VideoMaterial extends CourseMaterial {
+  - url: String
+  - duration: int
+  -- Operations --
+  + VideoMaterial(id: String, title: String, uploadDate: Date, url: String, duration: int)
+  + getMaterialInfo(): String
+  + updateContent(newUrl: String, newDuration: int): void
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - sender: User
+  - recipient: User
+  - relatedCourse: Course
+  -- Operations --
+  + Notification(id: String, message: String, timestamp: Date, sender: User, recipient: User, course: Course)
+  + getNotificationId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getSender(): User
+  + getRecipient(): User
+  + getRelatedCourse(): Course
+}
+
+class NotificationService {
+  - notifications: List<Notification>
+  -- Operations --
+  + sendNotification(notification: Notification): void
+  + createAndSendCourseAnnouncement(sender: Instructor, course: Course, message: String): void
+  + createAndSendDeadlineNotification(sender: User, course: Course, message: String): void
+  + getNotificationsForUser(user: User): List<Notification>
+}
+
+
+' --------------------------------------------------------------------------------
+' Enums
+' --------------------------------------------------------------------------------
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+}
+
+enum CourseCategory {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+' --------------------------------------------------------------------------------
+' Relationships
+' --------------------------------------------------------------------------------
+
+' Generalization (Inheritance)
+User <|-- Student
+User <|-- Instructor
+
+CourseMaterial <|-- DocumentMaterial
+CourseMaterial <|-- VideoMaterial
+
+' Associations
+Instructor "1" --> "0..*" Course : publishes >
+note on link: US-I1: Instructor creates course\nUS-SYS1: System authorizes instructor
+
+Course "1" o-- "0..*" CourseMaterial : contains >
+note on link: Course aggregates various learning materials.\nStudent can access materials, Instructor can modify.
+
+Student "1" -- "0..*" Enrollment
+Course "1" -- "0..*" Enrollment
+Enrollment "1" --> "1" Student : forStudent >
+Enrollment "1" --> "1" Course : forCourse >
+note left of Enrollment : Association class to capture enrollment details\n(date, status) for a specific student in a course.\nUS-S2, US-S4, US-SYS2
+
+NotificationService "1" *-- "0..*" Notification : manages >
+note on link: NotificationService is responsible for managing\nand delivering Notification objects.
+
+Notification "1" --> "1" User : sender >
+Notification "1" --> "1" User : recipient >
+Notification "0..1" --> "1" Course : relatedTo >
+note on link: Notifications can be related to a specific course.\nUS-S3, US-I3, US-SYS3
+
+' --------------------------------------------------------------------------------
+' Layout Hints (for better readability)
+' --------------------------------------------------------------------------------
+User -[hidden]-> Course
+Student -[hidden]-> CourseMaterial
+Instructor -[hidden]-> Enrollment
+Notification -[hidden]-> EnrollmentStatus
+NotificationService -[hidden]-> CourseCategory
+CourseCategory -[hidden]-> EnrollmentStatus
+DocumentMaterial -[hidden]-> VideoMaterial
+@enduml
+```

@@ -1,0 +1,176 @@
+Here is the design-level UML Class Diagram in PlantUML format, adhering to the provided design practices and incorporating details from the user stories, use case diagram, and domain model.
+
+```plantuml
+@startuml
+' --- Design Practices Applied ---
+' 1. Simplicity: Avoided separate Undergraduate/Postgraduate classes; used enum for CourseLevel on CourseOffering.
+' 2. Naming: Singular nouns (e.g., Student, CourseOffering), no spaces.
+' 3. Short names: Course, User, Enrollment, etc.
+' 4. Consistent Naming: PascalCase for classes/enums, camelCase for attributes/methods.
+' 5. Attribute Assignment: Attributes are carefully assigned; a dedicated Notification class encapsulates notification details.
+' 6. Operations: Classes have a manageable set of responsibilities and meaningful operations.
+' 7. No Operation Classes: All classes have operations or serve as data structures with clear purpose (enums).
+' 8. Manageable Responsibilities: Responsibilities are distributed (e.g., NotificationService for sending, Instructor for creating).
+' 9. Access Methods: Implied getters for attributes where viewing is required (e.g., getUserInfo, getCourseDetails).
+' 10. Operation Categories: Public (+) for external interactions, private (-) for internal state.
+' 11. Reduced Relationships: Focused on essential relationships, avoiding unnecessary complexity.
+' 12. Unidirectional: Relationships like dependencies (e.g., Instructor uses NotificationService) are unidirectional.
+' 13. Avoid Multi-level Inheritance: Maximum one level of inheritance (User -> Student/Instructor).
+' 14. Avoid Circular Dependency: Not applicable at this granularity for packages, but classes avoid tight circular dependencies.
+' 15. Multiplicity: Clearly defined for all associations.
+' 16. Relationship Names: Used where they add clarity (e.g., "teaches", "offers").
+' 17. Role Names: Used implicitly or explicitly as nouns.
+' 18. Relationship Names: Used implicitly or explicitly as verb phrases.
+' 19. Role/Relationship: Chosen for clarity, not both unless necessary.
+' 20. Association Class: Enrollment is modeled as an association class between Student and CourseOffering.
+' 21. Identify Relationships: Inheritance, aggregation, association, and dependency are clearly identified.
+' 22. Standard UML: Uses standard PlantUML notations.
+' 23. Descriptive Names: Clear and meaningful names for all elements.
+' 24. Consistent Style: Uniform naming conventions, symbols, and layout.
+' 25. Explanatory Notes: Added notes for key design decisions.
+' 26. Avoid Redundancy: CourseLevel enum replaces separate class hierarchy, reducing redundancy.
+' 27. Loose Coupling: NotificationService is loosely coupled, taking objects as parameters.
+
+!pragma layout smetana
+
+' --- Enums ---
+' Enums define distinct, constant values for specific attributes.
+enum CourseLevel {
+  Undergraduate
+  Postgraduate
+}
+
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum NotificationType {
+  Announcement
+  AssignmentDeadline
+  Submission
+}
+
+' --- Abstract Classes ---
+' Abstract base class for all users in the system.
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  +getUserInfo(): String
+  +receiveNotification(notification: Notification)
+}
+
+' Abstract base class for defining common course properties.
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  +getCourseDetails(): String
+}
+
+' --- Concrete Classes ---
+
+' Represents a student user.
+class Student {
+  +browseAvailableCourses(): List<CourseOffering>
+  +enrollInCourse(courseOffering: CourseOffering): Enrollment
+  +viewAnnouncements(): List<Notification>
+  +trackEnrollmentStatus(): List<Enrollment>
+}
+
+' Represents an instructor user with privileges to manage courses.
+class Instructor {
+  +createCourseOffering(baseCourse: Course, level: CourseLevel, schedule: String, materials: String): CourseOffering
+  +updateCourseMaterial(courseOffering: CourseOffering, newMaterials: String)
+  +sendCourseNotification(courseOffering: CourseOffering, message: String, type: NotificationType)
+}
+
+' Represents a specific instance of a course being offered (e.g., "Calculus I - Fall 2023").
+class CourseOffering {
+  -offeringId: String
+  -schedule: String
+  -materials: String ' Simplified: could be a list or a dedicated Material class
+  +getOfferingDetails(): String
+  +updateMaterials(newMaterials: String)
+  +getMaterials(): String
+  +triggerCourseActivityNotification(message: String, type: NotificationType)
+}
+
+' Represents a student's enrollment in a specific course offering.
+' This is an association class as it contains attributes specific to the relationship.
+class Enrollment {
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  +updateStatus(newStatus: EnrollmentStatus)
+  +getEnrollmentDetails(): String
+}
+
+' Represents a single notification message.
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  +getNotificationContent(): String
+}
+
+' Provides services for sending notifications to users.
+class NotificationService {
+  +sendNotification(recipient: User, notification: Notification)
+  +sendBulkNotification(recipients: List<User>, notification: Notification)
+}
+
+' --- Relationships ---
+
+' Inheritance: Student and Instructor are types of User.
+User <|-- Student
+User <|-- Instructor
+
+' Aggregation: A base Course can have multiple CourseOfferings.
+' An CourseOffering is an offering of a specific Course.
+Course "1" o-- "1..*" CourseOffering : offers >
+
+' Association: An Instructor teaches multiple CourseOfferings.
+' Each CourseOffering is taught by one Instructor.
+Instructor "1" -- "0..*" CourseOffering : teaches >
+
+' Association Class: Enrollment links Student and CourseOffering.
+' A Student can have multiple Enrollments.
+' A CourseOffering can have multiple Enrollments.
+Student "1" -- "0..*" Enrollment
+CourseOffering "1" -- "0..*" Enrollment
+
+' Usage: Enrollment uses EnrollmentStatus to define its state.
+Enrollment "1" --> "1" EnrollmentStatus : has >
+
+' Usage: CourseOffering uses CourseLevel to specify its academic level.
+CourseOffering "1" --> "1" CourseLevel : has >
+
+' Usage: Notification uses NotificationType to categorize its content.
+Notification "1" --> "1" NotificationType : has >
+
+' Dependency: Instructor uses NotificationService to send notifications.
+Instructor .> NotificationService : uses >
+
+' Dependency: CourseOffering may use NotificationService to trigger automated notifications (e.g., deadlines).
+CourseOffering .> NotificationService : uses >
+
+' Dependency: NotificationService sends Notification objects to User recipients.
+NotificationService .> User : sendsTo >
+NotificationService .> Notification : handles >
+
+' --- Explanatory Notes ---
+note "CourseLevel enum simplifies Course hierarchy by replacing separate classes, promoting simplicity and reducing redundancy (Practices 1, 26)." as N1
+CourseLevel .. N1
+
+note "Enrollment is modeled as an association class to hold attributes specific to the relationship between Student and CourseOffering (Practice 20)." as N2
+Enrollment .. N2
+
+note "A dedicated Notification class encapsulates notification data, and NotificationService handles the sending logic, promoting loose coupling and clear responsibilities (Practices 5, 27)." as N3
+Notification .. N3
+NotificationService .. N3
+
+@enduml
+```

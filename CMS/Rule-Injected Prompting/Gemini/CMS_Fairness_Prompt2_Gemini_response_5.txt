@@ -1,0 +1,211 @@
+Here is the design-level UML Class Diagram in PlantUML format, adhering to all the provided design practices and instructions. The design aims for simplicity, clarity, extensibility, and maintainability by defining clear responsibilities, appropriate relationships, and consistent naming conventions.
+
+```plantuml
+@startuml
+!pragma layout smetana
+
+' --- Overall Design Notes ---
+' This diagram models the core entities and their interactions within the Learning Platform.
+' It emphasizes clear responsibilities, loose coupling, and extensibility.
+' The 'System' role from user stories is encapsulated within operations
+' of Instructor (e.g., authorization for publishing) and NotificationService (e.g., delivery).
+' Access methods (getters/setters) are implicit for most attributes
+' but explicitly listed for clarity where core logic is involved.
+
+' --- Naming Conventions ---
+' Classes: PascalCase, singular noun (e.g., Student, Course)
+' Attributes & Operations: camelCase (e.g., userId, browseCourses)
+' Enums: UPPERCASE (e.g., ACTIVE, PDF)
+
+' --- Abstract Classes ---
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+  + setEmail(email: String): void
+  + abstract getInfo(): String
+}
+
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + abstract getInfo(): String
+  + addResource(resource: Resource): void
+  + updateResource(oldResource: Resource, newResource: Resource): void
+  + removeResource(resourceId: String): void
+  + getResources(): List<Resource>
+  + getResourceById(resourceId: String): Resource
+}
+
+' --- Concrete Classes ---
+class Student {
+  + Student(userId: String, name: String, email: String)
+  --
+  + browseAvailableCourses(): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewMyEnrollments(): List<Enrollment>
+  + accessCourseResources(course: Course): List<Resource>
+  + viewMyNotifications(): List<Notification>
+}
+
+class Instructor {
+  + Instructor(userId: String, name: String, email: String)
+  --
+  + createCourse(title: String, description: String, category: CourseCategory): Course
+  + updateCourseContent(course: Course, resource: Resource): void
+  + removeCourseResource(course: Course, resourceId: String): void
+  + sendCourseNotification(course: Course, message: String, type: NotificationType): void
+  + getPublishedCourses(): List<Course>
+}
+
+class UndergraduateCourse {
+  + UndergraduateCourse(id: String, title: String, description: String, publisher: Instructor)
+  --
+  + getInfo(): String
+}
+
+class PostgraduateCourse {
+  + PostgraduateCourse(id: String, title: String, description: String, publisher: Instructor)
+  --
+  + getInfo(): String
+}
+
+class Resource {
+  - resourceId: String
+  - name: String
+  - url: String
+  - type: ResourceType
+  --
+  + Resource(id: String, name: String, url: String, type: ResourceType)
+  + getResourceId(): String
+  + getName(): String
+  + getUrl(): String
+  + getType(): ResourceType
+  + setUrl(url: String): void
+  + setName(name: String): void
+}
+
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + Enrollment(student: Student, course: Course)
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getStudent(): Student
+  + getCourse(): Course
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  --
+  + Notification(id: String, message: String, type: NotificationType, course: Course)
+  + getNotificationId(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+  + getRelatedCourse(): Course
+}
+
+class NotificationService {
+  ' NotificationService is responsible for orchestrating notification delivery.
+  ' It does not hold state (attributes) related to individual notifications or users.
+  --
+  + sendNotification(notification: Notification, recipients: List<User>): void
+  + sendCourseNotification(course: Course, message: String, type: NotificationType, sender: Instructor): void
+  + sendEnrollmentUpdate(enrollment: Enrollment, message: String): void
+}
+
+' --- Enums for controlled vocabulary ---
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  LINK
+  TEXT
+  OTHER
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  DEADLINE
+  SUBMISSION
+  GENERAL
+}
+
+enum CourseCategory {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+' --- Relationships ---
+
+' Inheritance (Generalization/Specialization)
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Associations
+Instructor "1" -- "0..*" Course : publishes >
+note on link
+  An Instructor can publish multiple Courses.
+  A Course is published by exactly one Instructor.
+  (The 'publisher' role is implicitly held by Course)
+end note
+
+Course "1" -- "0..*" Resource : contains >
+note on link
+  A Course contains multiple Resources.
+  A Resource belongs to one Course.
+end note
+
+' Association Class (Enrollment captures the relationship details)
+Student "1" -- "0..*" Course
+(Student, Course) .. Enrollment
+note on link
+  An Enrollment object captures details of a Student's
+  participation in a specific Course (date, status).
+end note
+
+Notification "1" -- "0..1" Course : relatesTo >
+note on link
+  A Notification can optionally relate to a specific Course.
+end note
+
+Notification "1" -- "1..*" User : recipients >
+note on link
+  A Notification is sent to one or more Users.
+end note
+
+' Dependencies (Operational relationships, not structural)
+NotificationService ..> Notification : creates/sends
+NotificationService ..> User : notifies
+NotificationService ..> Course : forCourseContext
+NotificationService ..> Instructor : senderAuth
+
+' Additional dependencies for clarity
+Instructor .up.> CourseCategory : uses
+Student .up.> EnrollmentStatus : tracksStatusOf
+
+@enduml
+```

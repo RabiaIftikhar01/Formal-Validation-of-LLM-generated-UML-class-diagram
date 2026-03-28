@@ -1,0 +1,211 @@
+```plantuml
+@startuml
+' Global settings for consistency and readability
+skinparam classAttributeFontColor #000000
+skinparam classAttributeFontName Arial
+skinparam classAttributeFontSize 12
+skinparam classMethodFontColor #000000
+skinparam classMethodFontName Arial
+skinparam classMethodFontSize 12
+skinparam classFontColor #000000
+skinparam classFontName Arial
+skinparam classFontSize 14
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+' Title and Explanatory Notes
+title University Online Learning System - Design Class Diagram
+
+note "This diagram models the core entities and their interactions\nfor the online learning system, emphasizing extensibility and maintainability.\nIt implements good design practices such as clear responsibilities, loose coupling,\nand appropriate use of association classes and unidirectional relationships.\nEvery element serves an explicit purpose derived from the problem description and user stories." as N1
+N1 .. User
+
+' Enums for status and types
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  ASSIGNMENT_DUE
+  SUBMISSION_RECEIVED
+  ENROLLMENT_UPDATE
+}
+
+' Abstract Base Classes
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  - passwordHash: String
+  --
+  + login(username: String, password: String)
+  + logout()
+  + viewNotifications(): List<Notification>
+}
+
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + getCourseInfo(): String
+}
+
+' Concrete User Roles inheriting from User
+class Student {
+  --
+  + browseCourses(): List<CourseOffering>
+  + enrollInCourse(offering: CourseOffering): Enrollment
+  + viewCourseContent(material: CourseMaterial)
+  + viewAnnouncements(offering: CourseOffering): List<Announcement>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+}
+
+class Instructor {
+  --
+  + createCourseOffering(course: Course, term: String, year: int): CourseOffering
+  + publishCourseOffering(offering: CourseOffering)
+  + updateCourseMaterial(material: CourseMaterial, newContent: String)
+  + postAnnouncement(offering: CourseOffering, title: String, message: String): Announcement
+  + sendCourseNotification(offering: CourseOffering, type: NotificationType, message: String)
+}
+
+' Concrete Course Types inheriting from Course
+class UndergraduateCourse {
+  ' Specific attributes/operations for undergraduate courses, if any
+}
+
+class PostgraduateCourse {
+  ' Specific attributes/operations for postgraduate courses, if any
+}
+
+' Core Entities of the System
+class CourseOffering {
+  - offeringId: String
+  - academicTerm: String
+  - year: int
+  - maxCapacity: int
+  - isPublished: boolean = false
+  --
+  + getEnrollments(): List<Enrollment>
+  + addMaterial(material: CourseMaterial)
+  + addAnnouncement(announcement: Announcement)
+  + publish()
+  + unpublish()
+}
+
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - contentType: String
+  - contentURL: String
+  - uploadDate: Date
+  --
+  + viewContent(): byte[]
+  + updateContent(newContent: byte[])
+}
+
+class Announcement {
+  - announcementId: String
+  - title: String
+  - message: String
+  - publishDate: Date
+  --
+  + getDetails(): String
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - type: NotificationType
+  - isRead: boolean = false
+  --
+  + markAsRead()
+}
+
+' Service for handling notifications, promoting loose coupling
+class NotificationService {
+  --
+  + sendNotification(notification: Notification, recipient: User)
+  + sendBulkNotification(notification: Notification, recipients: List<User>)
+}
+
+' Relationships
+
+' Inheritance Relationships
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Core Associations
+Instructor "1" -- "0..*" CourseOffering : publishes >
+note right of Instructor::publishes
+  Only instructors can create
+  and publish course offerings.
+end note
+
+CourseOffering "1" *-- "1" Course : "is an offering of" >
+note right of CourseOffering::"is an offering of"
+  A specific course offering
+  relates to one course definition.
+end note
+
+CourseOffering "1" *-- "0..*" CourseMaterial : contains >
+note right of CourseOffering::contains
+  Instructors are responsible for
+  updating these materials.
+end note
+
+CourseOffering "1" *-- "0..*" Announcement : posts >
+note right of CourseOffering::posts
+  Announcements are specific to
+  a course offering.
+end note
+
+' Association Class for Enrollment
+' Enrollment captures the specific details of a student's enrollment in a course offering.
+(Student, CourseOffering) .. Enrollment
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus)
+  + getStudent(): Student
+  + getCourseOffering(): CourseOffering
+}
+Student "1" o-- "0..*" Enrollment : makes
+CourseOffering "1" o-- "0..*" Enrollment : has
+
+' Notification System Relationships
+Notification "0..*" --> "1" User : recipient >
+note left of Notification::recipient
+  A notification is always
+  intended for a specific user.
+end note
+
+NotificationService "1" -- "0..*" Notification : manages >
+note right of NotificationService::manages
+  Centralized service for
+  sending and managing notifications.
+end note
+
+Instructor --> NotificationService : sends via >
+note left of Instructor::sends
+  Instructors use the service
+  to send notifications.
+end note
+
+CourseOffering --> NotificationService : triggers >
+note right of CourseOffering::triggers
+  Events within an offering
+  (e.g., new announcement)
+  can trigger notifications.
+end note
+
+@enduml
+```

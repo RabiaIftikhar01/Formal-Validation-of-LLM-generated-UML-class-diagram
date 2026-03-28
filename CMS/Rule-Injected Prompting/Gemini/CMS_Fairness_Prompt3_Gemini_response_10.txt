@@ -1,0 +1,186 @@
+@startuml
+!theme mars
+
+' Set global style for consistency and readability
+skinparam class {
+    BackgroundColor White
+    BorderColor #444444
+    ArrowColor #444444
+    ArrowFontColor #444444
+    AttributeFontSize 12
+    OperationFontSize 12
+}
+skinparam enum {
+    BackgroundColor #FFE0B2
+    BorderColor #FF9800
+    FontSize 12
+}
+skinparam abstract {
+    BackgroundColor #E0F2F7
+    BorderColor #2196F3
+    FontSize 12
+}
+
+title University Digital Learning Platform - Design Class Diagram
+
+' --- Abstract Base Class for Users ---
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + User(userId: String, name: String, email: String)
+  + getUserId(): String
+  + getName(): String
+  + getEmail(): String
+  + abstract getUserInfo(): String
+}
+
+' --- Concrete User Roles ---
+class Student {
+  --
+  + Student(userId: String, name: String, email: String)
+  + browseCourses(): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewCourseContent(course: Course): List<CourseMaterial>
+  + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+  + viewNotifications(): List<Notification>
+}
+
+class Instructor {
+  --
+  + Instructor(userId: String, name: String, email: String)
+  + createCourseOffering(title: String, description: String, level: CourseLevel): Course
+  + updateCourseMaterial(course: Course, material: CourseMaterial): void
+  + publishAnnouncement(course: Course, subject: String, message: String): Notification
+  + viewCourseEnrollments(course: Course): List<Enrollment>
+}
+
+' --- Course Related Classes ---
+class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  - courseLevel: CourseLevel
+  --
+  + Course(courseId: String, title: String, description: String, level: CourseLevel)
+  + getCourseId(): String
+  + getTitle(): String
+  + getDescription(): String
+  + getCourseLevel(): CourseLevel
+  + addMaterial(material: CourseMaterial): void
+  + getMaterials(): List<CourseMaterial>
+  + getEnrollments(): List<Enrollment>
+}
+
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - content: String
+  - uploadDate: Date
+  --
+  + CourseMaterial(materialId: String, title: String, content: String)
+  + getMaterialId(): String
+  + getTitle(): String
+  + getContent(): String
+  + getUploadDate(): Date
+  + updateContent(newContent: String): void
+}
+
+enum CourseLevel {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
+' --- Enrollment Related Classes ---
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + Enrollment(student: Student, course: Course, date: Date)
+  + getEnrollmentId(): String
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + updateStatus(newStatus: EnrollmentStatus): void
+  + getStudent(): Student
+  + getCourse(): Course
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+}
+
+' --- Notification Related Classes ---
+class NotificationService {
+  --
+  + sendNotification(recipient: User, subject: String, message: String): Notification
+  ' Helper method to create a Notification object internally
+  - createNotification(recipient: User, subject: String, message: String): Notification
+}
+
+class Notification {
+  - notificationId: String
+  - subject: String
+  - message: String
+  - timestamp: Date
+  --
+  + Notification(recipient: User, subject: String, message: String)
+  + getNotificationId(): String
+  + getSubject(): String
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getRecipient(): User
+}
+
+' --- Relationships ---
+
+' Inheritance Hierarchy for Users
+User <|-- Student
+User <|-- Instructor
+
+' Course Level Composition: Course requires a specific level
+Course "1" *-- "1" CourseLevel : specifies
+
+' Course Material Aggregation: A Course can have many materials
+Course "1" -- "0..*" CourseMaterial : contains >
+
+' Instructor manages Course Offerings
+Instructor "1" --> "0..*" Course : managesOfferings >
+note on link: Instructor creates and updates Course offerings and their materials.
+
+' Enrollment: An Association Class between Student and Course
+Student "1" -- "0..*" Enrollment : participatesIn >
+Course "1" -- "0..*" Enrollment : has >
+
+' Enrollment details
+Enrollment "1" --> "1" Student : enrolledBy >
+Enrollment "1" --> "1" Course : forCourse >
+Enrollment "1" *-- "1" EnrollmentStatus : hasStatus
+
+' Notification Service Usage and Creation
+Instructor "1" --> "1" NotificationService : uses >
+note on link: Instructor triggers notifications via the service.
+
+NotificationService "1" --> "0..*" Notification : creates >
+note on link: The service is responsible for generating and sending Notification objects.
+
+Notification "1" --> "1" User : recipient >
+note on link: Each Notification is addressed to a specific User.
+
+' --- Explanatory Notes ---
+note "This abstract class provides common attributes and behaviors for all user types in the system." as UserNote
+User -[hidden]-> UserNote
+
+note "This class represents a specific course offering. The variability in course level (Undergraduate/Postgraduate) is handled by the 'CourseLevel' enum to maintain simplicity and avoid unnecessary class hierarchy." as CourseNote
+Course -[hidden]-> CourseNote
+
+note "This association class captures the specific details of a student's enrollment in a course, including the enrollment date and current status. It links a 'Student' to a 'Course'." as EnrollmentNote
+Enrollment -[hidden]-> EnrollmentNote
+
+note "This service centralizes the logic for sending notifications. It decouples the notification mechanism from other business entities, promoting loose coupling and reusability." as NotificationServiceNote
+NotificationService -[hidden]-> NotificationServiceNote
+
+@enduml

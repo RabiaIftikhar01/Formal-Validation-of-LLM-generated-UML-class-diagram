@@ -1,0 +1,170 @@
+```plantuml
+@startuml
+' Design Level Class Diagram for Learning Platform
+
+' Adherence to Design Practices:
+' - Naming: Classes are singular nouns (e.g., Student, Course), short, and use PascalCase. Attributes and methods use camelCase.
+' - Simplicity: Aiming for a clear model without unnecessary complexity.
+' - Responsibilities: Classes have focused responsibilities (e.g., Instructor for course management, Student for enrollment).
+' - Attributes & Operations: Carefully assigned to appropriate classes, with implied accessors (get/set) for public attributes.
+' - Relationships: Identified with clear multiplicity, role names (e.g., "manages", "has"), and direction where beneficial.
+' - Inheritance: Used for User and Course hierarchies, limited to one level to avoid complexity.
+' - Loose Coupling: Achieved through well-defined interfaces and dependencies (e.g., NotificationService).
+' - Readability: Consistent notation and layout.
+' - Justification: Each element serves a clear purpose based on requirements.
+
+hide empty members
+
+' Enums for status and types
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum NotificationType {
+  Announcement
+  Deadline
+  Submission
+}
+
+' Abstract base class for individuals in the system
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  + abstract getInfo(): String
+}
+
+' Concrete user roles inheriting from User
+class Student {
+  --
+  + browseCourses(): List<Course>
+  + enrollInCourse(course: Course): Enrollment
+  + viewAnnouncements(): List<Notification>
+  + trackEnrollmentStatus(): List<Enrollment>
+  + accessCourseMaterial(material: CourseMaterial): void
+}
+
+class Instructor {
+  --
+  + createUndergraduateCourse(title: String, description: String): UndergraduateCourse
+  + createPostgraduateCourse(title: String, description: String): PostgraduateCourse
+  + updateCourseDetails(course: Course, newTitle: String, newDescription: String): void
+  + addCourseMaterial(course: Course, title: String, type: String, contentURL: String): CourseMaterial
+  + updateCourseMaterial(material: CourseMaterial, newMaterialId: String, newTitle: String, newType: String, newContentURL: String): void
+  + publishCourse(course: Course): void
+  + sendNotification(message: String, type: NotificationType, recipients: Set<User>): void
+}
+
+' Generalization: Student and Instructor are types of Users
+User <|-- Student
+User <|-- Instructor
+
+' Abstract base class for courses
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  -isPublished: Boolean = false
+  -instructor: Instructor ' The instructor who published/manages this course
+  --
+  + abstract getInfo(): String
+  + addMaterial(material: CourseMaterial): void
+  + removeMaterial(materialId: String): void
+  + getCourseMaterials(): List<CourseMaterial>
+  + getEnrollments(): List<Enrollment>
+  + publish(instructor: Instructor): void
+}
+
+' Concrete course types inheriting from Course
+class UndergraduateCourse {
+}
+
+class PostgraduateCourse {
+}
+
+' Generalization: UndergraduateCourse and PostgraduateCourse are types of Courses
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Represents learning materials within a course
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -type: String ' e.g., "PDF", "Video", "Quiz"
+  -contentURL: String
+  --
+  ' Public accessors only for students (read-only access)
+  + getMaterialId(): String
+  + getTitle(): String
+  + getType(): String
+  + getContentURL(): String
+}
+
+' Represents a student's enrollment in a specific course
+' This acts as an association class capturing details of the Student-Course relationship
+class Enrollment {
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus): void
+}
+
+' Represents a notification to be sent to users
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  -recipients: Set<User> ' A notification can be sent to multiple users
+  --
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+  + getRecipients(): Set<User>
+}
+
+' Service responsible for sending notifications
+class NotificationService {
+  --
+  + send(notification: Notification): void
+}
+
+' Relationships
+
+' An Instructor manages (publishes and updates) multiple Courses.
+' A Course is managed by exactly one Instructor.
+Instructor "1" o-- "0..*" Course : manages >
+' Note: Aggregation (o--) is used as Courses can exist even if the managing Instructor leaves.
+' The Course object holds a reference to its managing Instructor for traceability and authorization.
+
+' A Student can have multiple Enrollments.
+Student "1" -- "0..*" Enrollment : has >
+
+' A Course can have multiple Enrollments.
+Course "1" -- "0..*" Enrollment : has >
+' Note: Enrollment explicitly links a specific Student to a specific Course with additional attributes.
+
+' A Course contains multiple CourseMaterials.
+' A CourseMaterial belongs to one Course.
+Course "1" -- "0..*" CourseMaterial : contains >
+
+' A Notification can have multiple User recipients.
+Notification "1" o-- "0..*" User : hasRecipient >
+' Note: This models a notification being directed to a set of users, rather than individual notifications per user.
+
+' Dependencies (showing usage without strong association)
+
+' Instructor uses NotificationService to send notifications.
+Instructor ..> NotificationService : uses
+
+' Course events (e.g., new announcements) can trigger notifications via the NotificationService.
+Course ..> NotificationService : triggers
+
+' NotificationService operates on Notification objects when sending.
+NotificationService ..> Notification : sends
+
+@enduml
+```

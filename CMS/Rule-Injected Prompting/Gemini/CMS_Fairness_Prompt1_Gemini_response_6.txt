@@ -1,0 +1,188 @@
+```plantuml
+@startuml
+
+' Skinparam for consistent style and readability
+skinparam class {
+  BorderColor #428bca
+  BackgroundColor #f0f8ff
+  ArrowColor #428bca
+  FontColor #333333
+  AttributeFontColor #333333
+  OperationFontColor #333333
+}
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+hide empty members
+
+' Title for the diagram
+title University Online Learning System - Design Class Diagram
+
+' -------------------------- User Management (Generalization) --------------------------
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  +User(userId: String, name: String, email: String)
+  +getUserId(): String
+  +getName(): String
+  +getEmail(): String
+  +abstract getInfo(): String ' Access operation: Provides general user information
+}
+
+class Student {
+  --
+  +Student(userId: String, name: String, email: String)
+  +getInfo(): String ' Override: Provides student-specific information
+  +browseCourses(): List<Course> ' Implementor: US-S1
+  +enrollInCourse(course: Course): Enrollment ' Implementor: US-S2, triggers system for US-SYS2
+  +viewAnnouncements(): List<Notification> ' Implementor: US-S3
+  +trackEnrollmentStatus(): List<Enrollment> ' Implementor: US-S4
+  +viewCourseContent(course: Course): List<CourseMaterial> ' Implementor: Access learning materials
+}
+
+class Instructor {
+  --
+  +Instructor(userId: String, name: String, email: String)
+  +getInfo(): String ' Override: Provides instructor-specific information
+  +createUndergraduateCourse(title: String, description: String): UndergraduateCourse ' Implementor: US-I1, US-SYS1
+  +createPostgraduateCourse(title: String, description: String): PostgraduateCourse ' Implementor: US-I1, US-SYS1
+  +updateCourseMaterial(course: Course, material: CourseMaterial): void ' Implementor: US-I2, US-SYS1
+  +publishCourse(course: Course): void ' Implementor: Makes a course available for enrollment
+  +sendCourseNotification(course: Course, message: String): void ' Implementor: US-I3, utilizes NotificationService
+}
+
+User <|-- Student : extends
+User <|-- Instructor : extends
+
+' -------------------------- Course Management (Generalization & Composition) --------------------------
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  -isPublished: boolean
+  -materials: List<CourseMaterial> ' Composition: Course owns its materials
+  --
+  +Course(courseId: String, title: String, description: String) ' Constructor
+  +getCourseId(): String ' Access operation
+  +getTitle(): String ' Access operation
+  +getDescription(): String ' Access operation
+  +isPublished(): boolean ' Access operation
+  +setPublishedStatus(status: boolean): void ' Implementor: Allows instructor to publish/unpublish
+  +addMaterial(material: CourseMaterial): void ' Implementor: Used by Instructor to update content
+  +removeMaterial(materialId: String): void ' Implementor: Used by Instructor to update content
+  +getMaterials(): List<CourseMaterial> ' Access operation: Allows students to view content
+  +abstract getInfo(): String ' Access operation: Provides general course information
+}
+
+class UndergraduateCourse {
+  --
+  +UndergraduateCourse(courseId: String, title: String, description: String) ' Constructor
+  +getInfo(): String ' Override: Provides undergraduate course information
+}
+
+class PostgraduateCourse {
+  --
+  +PostgraduateCourse(courseId: String, title: String, description: String) ' Constructor
+  +getInfo(): String ' Override: Provides postgraduate course information
+}
+
+class CourseMaterial {
+  -materialId: String
+  -title: String
+  -contentUrl: String ' URL or path to the material
+  -uploadDate: Date
+  --
+  +CourseMaterial(materialId: String, title: String, contentUrl: String) ' Constructor
+  +getMaterialId(): String ' Access operation
+  +getTitle(): String ' Access operation
+  +getContentUrl(): String ' Access operation
+  +getUploadDate(): Date ' Access operation
+  +updateContentUrl(newUrl: String): void ' Implementor: Allows updates to material content
+}
+
+Course <|-- UndergraduateCourse : extends
+Course <|-- PostgraduateCourse : extends
+
+' -------------------------- Enrollment (Association Class & Enum) --------------------------
+class Enrollment {
+  -enrollmentId: String
+  -enrollmentDate: Date
+  -status: EnrollmentStatus ' Composition: Enrollment has an EnrollmentStatus
+  --
+  +Enrollment(student: Student, course: Course, date: Date) ' Constructor: US-SYS2
+  +getEnrollmentId(): String ' Access operation
+  +getEnrollmentDate(): Date ' Access operation
+  +getStatus(): EnrollmentStatus ' Access operation: US-S4
+  +updateStatus(newStatus: EnrollmentStatus): void ' Implementor: Updates enrollment status
+}
+
+enum EnrollmentStatus {
+  WAITLISTED
+  ACTIVE
+  COMPLETED
+}
+
+' -------------------------- Notification System --------------------------
+class Notification {
+  -notificationId: String
+  -message: String
+  -timestamp: Date
+  -readStatus: boolean
+  --
+  +Notification(notificationId: String, message: String, timestamp: Date) ' Constructor
+  +getNotificationId(): String ' Access operation
+  +getMessage(): String ' Access operation
+  +getTimestamp(): Date ' Access operation
+  +isRead(): boolean ' Access operation
+  +markAsRead(): void ' Implementor: Changes read status
+}
+
+class NotificationService {
+  --
+  +sendNotification(notification: Notification, recipient: User): void ' Implementor: US-SYS3
+  +sendBulkNotifications(notification: Notification, recipients: List<User>): void ' Implementor: Helper for sending to multiple users
+}
+
+' -------------------------- Relationships --------------------------
+
+' Enrollment Association Class: A student enrolls in a course, resulting in an Enrollment record.
+(Student, Course) .. Enrollment
+Student "1" -- "0..*" Enrollment : manages
+Course "1" -- "0..*" Enrollment : has
+
+' Instructor manages Courses: An instructor creates and updates courses.
+Instructor "1" --> "0..*" Course : managesCourses >
+
+' Course contains CourseMaterial: A course is composed of multiple materials.
+Course "1" *-- "0..*" CourseMaterial : contains >
+
+' Instructor utilizes NotificationService: Instructor uses the service to send notifications.
+Instructor "1" --> "1" NotificationService : utilizes >
+
+' NotificationService sends Notifications: The service processes and sends notification objects.
+NotificationService "1" --> "1" Notification : sends >
+
+' Notification targets User: A notification is directed towards a specific user.
+Notification "1" --> "1" User : targets >
+
+' Enrollment has an EnrollmentStatus: This is modeled as an attribute, not a separate association.
+Enrollment "1" o-- "1" EnrollmentStatus : has
+
+' -------------------------- Explanatory Notes --------------------------
+note "Instructor creates specific course types using methods for UndergraduateCourse and PostgraduateCourse." as N1
+Instructor .. N1
+
+note "Enrollment is an association class that captures details of a student's enrollment in a course, including status and date." as N2
+Enrollment .. N2
+
+note "Course materials are managed directly by the Course class, ensuring content is always associated with its respective course." as N3
+Course .. N3
+CourseMaterial .. N3
+
+note "NotificationService is responsible for the delivery mechanism of notifications.\nIndividual Notification objects encapsulate the message and timestamp." as N4
+NotificationService .. N4
+Notification .. N4
+
+@enduml
+```
