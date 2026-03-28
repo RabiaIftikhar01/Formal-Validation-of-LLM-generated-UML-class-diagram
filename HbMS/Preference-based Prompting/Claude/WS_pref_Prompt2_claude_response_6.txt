@@ -1,0 +1,98 @@
+```plantuml
+@startuml
+
+abstract class BillingPolicy {
+    + {abstract} calculateBill(charges : List<BillingCharge>) : decimal
+    + {abstract} applyPolicy(amount : decimal) : decimal
+}
+
+class InsuranceBillingPolicy extends BillingPolicy {
+    - coverageLimit : decimal
+    - copaymentPercentage : decimal
+    + calculateBill(charges : List<BillingCharge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+    + setCoverageLimit(limit : decimal)
+    + getCoverageLimit() : decimal
+}
+
+class GovernmentBillingPolicy extends BillingPolicy {
+    - subsidyRate : decimal
+    + calculateBill(charges : List<BillingCharge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+    + setSubsidyRate(rate : decimal)
+    + getSubsidyRate() : decimal
+}
+
+class SelfPayBillingPolicy extends BillingPolicy {
+    + calculateBill(charges : List<BillingCharge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+}
+
+class Patient {
+    - patientId : string
+    - name : string
+    - patientType : string
+    + getPatientId() : string
+    + getName() : string
+    + getPatientType() : string
+    + setPatientType(type : string)
+}
+
+class DischargeBill {
+    - billId : string
+    - totalAmount : decimal
+    - generatedDate : date
+    + generateBill()
+    + getTotalAmount() : decimal
+    + getBillId() : string
+    + getGeneratedDate() : date
+}
+
+abstract class BillingCharge {
+    # chargeId : string
+    # amount : decimal
+    # description : string
+    + {abstract} calculateCharge() : decimal
+    + getAmount() : decimal
+    + getDescription() : string
+}
+
+class TreatmentCharge extends BillingCharge {
+    - procedureName : string
+    + calculateCharge() : decimal
+    + getProcedureName() : string
+}
+
+class PharmaceuticalCharge extends BillingCharge {
+    - medicationName : string
+    - quantity : int
+    + calculateCharge() : decimal
+    + getMedicationName() : string
+}
+
+class LaboratoryCharge extends BillingCharge {
+    - testName : string
+    + calculateCharge() : decimal
+    + getTestName() : string
+}
+
+class RoomCharge extends BillingCharge {
+    - roomType : string
+    - numberOfDays : int
+    + calculateCharge() : decimal
+    + getRoomType() : string
+}
+
+class BillingContext {
+    - policy : BillingPolicy
+    + setPolicy(policy : BillingPolicy)
+    + executePolicy(charges : List<BillingCharge>) : decimal
+}
+
+DischargeBill --> Patient
+DischargeBill --> BillingContext
+DischargeBill o-- BillingCharge
+BillingContext o-- BillingPolicy
+
+@enduml
+```

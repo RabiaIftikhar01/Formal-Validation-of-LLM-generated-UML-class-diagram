@@ -1,0 +1,109 @@
+@startuml
+abstract class BillingPolicy {
+    + {abstract} calculateBill(charges : List<Charge>) : Bill
+    + {abstract} applyPolicy(amount : double) : double
+}
+
+class InsuranceBillingPolicy extends BillingPolicy {
+    - coveragePercentage : double
+    - reimbursementLimit : double
+    - coPaymentAmount : double
+    + calculateBill(charges : List<Charge>) : Bill
+    + applyPolicy(amount : double) : double
+    + getCoveragePercentage() : double
+    + setCoveragePercentage(percentage : double)
+}
+
+class GovernmentBillingPolicy extends BillingPolicy {
+    - subsidyRate : double
+    - fixedRates : Map<string, double>
+    + calculateBill(charges : List<Charge>) : Bill
+    + applyPolicy(amount : double) : double
+    + getSubsidyRate() : double
+    + setSubsidyRate(rate : double)
+}
+
+class SelfPayBillingPolicy extends BillingPolicy {
+    + calculateBill(charges : List<Charge>) : Bill
+    + applyPolicy(amount : double) : double
+}
+
+class Patient {
+    - patientId : string
+    - name : string
+    - insuranceId : string
+    - patientType : string
+    + getPatientId() : string
+    + getName() : string
+    + getInsuranceId() : string
+    + getPatientType() : string
+}
+
+class Bill {
+    - billId : string
+    - patientId : string
+    - totalAmount : double
+    - generatedDate : Date
+    + getBillId() : string
+    + getTotalAmount() : double
+    + getGeneratedDate() : Date
+    + setTotalAmount(amount : double)
+    + addCharge(charge : Charge)
+}
+
+abstract class Charge {
+    - chargeId : string
+    - description : string
+    - amount : double
+    + {abstract} calculateAmount() : double
+    + getChargeId() : string
+    + getDescription() : string
+    + getAmount() : double
+}
+
+class ProcedureCharge extends Charge {
+    - procedureName : string
+    + calculateAmount() : double
+    + getProcedureName() : string
+}
+
+class MedicationCharge extends Charge {
+    - medicationName : string
+    - quantity : int
+    + calculateAmount() : double
+    + getMedicationName() : string
+}
+
+class DiagnosticCharge extends Charge {
+    - testName : string
+    + calculateAmount() : double
+    + getTestName() : string
+}
+
+class RoomCharge extends Charge {
+    - roomType : string
+    - numberOfDays : int
+    - dailyRate : double
+    + calculateAmount() : double
+    + getRoomType() : string
+}
+
+class BillingService {
+    - policy : BillingPolicy
+    + generateBill(patient : Patient, charges : List<Charge>) : Bill
+    + setPolicy(policy : BillingPolicy)
+    + getPolicy() : BillingPolicy
+}
+
+class PolicyFactory {
+    + createPolicy(patient : Patient) : BillingPolicy
+}
+
+BillingService --> BillingPolicy
+BillingService ..> Bill : creates
+BillingService ..> Patient : uses
+Bill o-- Charge
+PolicyFactory ..> BillingPolicy : creates
+PolicyFactory ..> Patient : uses
+
+@enduml

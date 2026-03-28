@@ -1,0 +1,103 @@
+@startuml
+
+abstract class BillingPolicy {
+    + {abstract} calculateBill(charges : List<Charge>) : decimal
+    + {abstract} applyPolicy(amount : decimal) : decimal
+}
+
+class InsuranceBillingPolicy extends BillingPolicy {
+    - coverageLimit : decimal
+    - coPayPercentage : decimal
+    - deductible : decimal
+    + calculateBill(charges : List<Charge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+    + setCoverageLimit(limit : decimal)
+    + setCoPayPercentage(percentage : decimal)
+}
+
+class GovernmentSubsidyPolicy extends BillingPolicy {
+    - subsidyRate : decimal
+    - maxSubsidyAmount : decimal
+    + calculateBill(charges : List<Charge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+    + setSubsidyRate(rate : decimal)
+}
+
+class SelfPayPolicy extends BillingPolicy {
+    + calculateBill(charges : List<Charge>) : decimal
+    + applyPolicy(amount : decimal) : decimal
+}
+
+class Patient {
+    - patientId : string
+    - name : string
+    - patientType : string
+    + getPatientId() : string
+    + getName() : string
+    + getPatientType() : string
+}
+
+class Invoice {
+    - invoiceId : string
+    - totalAmount : decimal
+    - generatedDate : date
+    + generateInvoice() : Invoice
+    + getTotalAmount() : decimal
+    + getInvoiceId() : string
+}
+
+class BillingService {
+    - policy : BillingPolicy
+    + setBillingPolicy(policy : BillingPolicy)
+    + computeBill(patient : Patient, charges : List<Charge>) : Invoice
+    + aggregateCharges(charges : List<Charge>) : decimal
+}
+
+abstract class Charge {
+    - chargeId : string
+    - description : string
+    - amount : decimal
+    + {abstract} calculateCost() : decimal
+    + getAmount() : decimal
+    + getDescription() : string
+}
+
+class ProcedureCharge extends Charge {
+    - procedureName : string
+    + calculateCost() : decimal
+}
+
+class MedicationCharge extends Charge {
+    - medicationName : string
+    - quantity : int
+    + calculateCost() : decimal
+}
+
+class DiagnosticCharge extends Charge {
+    - testName : string
+    + calculateCost() : decimal
+}
+
+class AccommodationCharge extends Charge {
+    - roomType : string
+    - numberOfDays : int
+    - dailyRate : decimal
+    + calculateCost() : decimal
+}
+
+class InsuranceProvider {
+    - providerId : string
+    - providerName : string
+    - coverageDetails : string
+    + getCoverageDetails() : string
+    + validateCoverage(patient : Patient) : boolean
+}
+
+BillingService --> BillingPolicy
+BillingService --> Patient
+BillingService --> Invoice
+BillingService --> Charge
+Invoice o-- Charge
+InsuranceBillingPolicy ..> InsuranceProvider : uses
+
+@enduml
