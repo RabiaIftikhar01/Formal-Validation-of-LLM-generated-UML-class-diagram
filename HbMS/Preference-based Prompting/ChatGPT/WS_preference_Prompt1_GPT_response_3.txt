@@ -1,0 +1,172 @@
+```plantuml
+@startuml
+' Naming convention: PascalCase for classes, camelCase for attributes and methods
+
+' === Core domain classes ===
+class Patient {
+    - id : String
+    - name : String
+    - patientType : PatientType
+    - insuranceInfo : InsuranceInfo
+    + getId() : String
+    + getName() : String
+    + getPatientType() : PatientType
+    + getInsuranceInfo() : InsuranceInfo
+}
+
+enum PatientType {
+    InPatient
+    OutPatient
+    SelfPaying
+    GovernmentProgram
+}
+
+class InsuranceInfo {
+    - providerName : String
+    - coverageDetails : CoverageDetails
+    + getProviderName() : String
+    + getCoverageDetails() : CoverageDetails
+}
+
+class CoverageDetails {
+    - coveragePercentage : float
+    - reimbursementLimit : float
+    - coPayment : float
+    + getCoveragePercentage() : float
+    + getReimbursementLimit() : float
+    + getCoPayment() : float
+}
+
+' === Billing related classes ===
+
+class Bill {
+    - patient : Patient
+    - charges : List<Charge>
+    - billingPolicy : BillingPolicy
+    - totalAmount : float
+    + addCharge(c : Charge)
+    + calculateTotal() : float
+    + getTotalAmount() : float
+}
+
+interface BillingPolicy {
+    + calculateBill(charges : List<Charge>, patient : Patient) : float
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + calculateBill(charges : List<Charge>, patient : Patient) : float
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    + calculateBill(charges : List<Charge>, patient : Patient) : float
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateBill(charges : List<Charge>, patient : Patient) : float
+}
+
+class BillingPolicyFactory {
+    + getBillingPolicy(patient : Patient) : BillingPolicy
+}
+
+' === Charge and Pricing classes ===
+
+abstract class Charge {
+    - description : String
+    - amount : float
+    + getDescription() : String
+    + getAmount() : float
+    + calculateAmount() : float
+}
+
+class ProcedureCharge extends Charge {
+    - procedureCode : String
+    + calculateAmount() : float
+}
+
+class MedicationCharge extends Charge {
+    - medicationCode : String
+    - dosage : String
+    + calculateAmount() : float
+}
+
+class DiagnosticCharge extends Charge {
+    - testCode : String
+    + calculateAmount() : float
+}
+
+class RoomCharge extends Charge {
+    - roomType : String
+    - daysOccupied : int
+    + calculateAmount() : float
+}
+
+interface PricingRule<T extends Charge> {
+    + calculatePrice(charge : T) : float
+}
+
+class ProcedurePricingRule implements PricingRule<ProcedureCharge> {
+    + calculatePrice(charge : ProcedureCharge) : float
+}
+
+class MedicationPricingRule implements PricingRule<MedicationCharge> {
+    + calculatePrice(charge : MedicationCharge) : float
+}
+
+class DiagnosticPricingRule implements PricingRule<DiagnosticCharge> {
+    + calculatePrice(charge : DiagnosticCharge) : float
+}
+
+class RoomPricingRule implements PricingRule<RoomCharge> {
+    + calculatePrice(charge : RoomCharge) : float
+}
+
+' === Associations ===
+
+Patient "1" --> "0..1" InsuranceInfo : has
+InsuranceInfo "1" --> "1" CoverageDetails
+
+Bill "1" --> "1" Patient : belongsTo
+Bill "1" *-- "*" Charge : includes
+Bill "1" --> "1" BillingPolicy : uses
+
+BillingPolicyFactory ..> BillingPolicy : creates
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+Charge <|-- ProcedureCharge
+Charge <|-- MedicationCharge
+Charge <|-- DiagnosticCharge
+Charge <|-- RoomCharge
+
+' Pricing rules associated to charges (unidirectional)
+ProcedurePricingRule ..> ProcedureCharge
+MedicationPricingRule ..> MedicationCharge
+DiagnosticPricingRule ..> DiagnosticCharge
+RoomPricingRule ..> RoomCharge
+
+' Notes
+note top of BillingPolicy
+  BillingPolicy is a Strategy interface
+  allowing interchange of billing computations
+  based on patient type and regulatory rules.
+end note
+
+note right of Bill
+  Bill aggregates Charges and applies
+  a BillingPolicy to calculate total amount.
+end note
+
+note left of Charge
+  Charge is an abstract class representing
+  any billable item with independent pricing rules.
+end note
+
+note bottom of BillingPolicyFactory
+  Factory determines appropriate BillingPolicy
+  based on patient info at runtime.
+end note
+
+@enduml
+```
