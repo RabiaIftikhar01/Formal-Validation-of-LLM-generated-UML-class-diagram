@@ -1,0 +1,124 @@
+Based on the provided requirements, user stories, use case diagram, and domain model, I will create a well-designed class diagram following all the design practices and instructions.
+
+```plantuml
+@startuml
+
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    + {abstract} getInfo() : String
+    + {abstract} addRole(role : UserRole)
+    + {abstract} getRole(type : String) : UserRole
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+}
+
+abstract class UserRole {
+    # user : User
+    + {abstract} performAction()
+    + getUser() : User
+}
+
+class Student extends UserRole {
+    + browseCourses() : List<Course>
+    + enrollInCourse(course : Course)
+    + viewAnnouncements(course : Course) : List<String>
+    + trackEnrollmentStatus() : List<Enrollment>
+    + viewMaterial(course : Course)
+    + performAction()
+}
+
+class Instructor extends UserRole {
+    + createCourse(type : String) : Course
+    + updateCourseContent(course : Course, content : String)
+    + sendNotification(course : Course, message : String)
+    + performAction()
+}
+
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    - content : String
+    + {abstract} getInfo() : String
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+    + getContent() : String
+    + setContent(content : String)
+}
+
+class UndergraduateCourse extends Course {
+    + getInfo() : String
+}
+
+class PostgraduateCourse extends Course {
+    + getInfo() : String
+}
+
+abstract class CourseFactory {
+    + {abstract} createCourse(title : String, description : String) : Course
+}
+
+class UndergraduateCourseFactory extends CourseFactory {
+    + createCourse(title : String, description : String) : Course
+}
+
+class PostgraduateCourseFactory extends CourseFactory {
+    + createCourse(title : String, description : String) : Course
+}
+
+class Enrollment {
+    - enrollmentId : String
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + getEnrollmentId() : String
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + setStatus(status : EnrollmentStatus)
+    + updateStatus(newStatus : EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    WAITLISTED
+    ACTIVE
+    COMPLETED
+}
+
+class NotificationService {
+    - static instance : NotificationService
+    + getInstance() : NotificationService
+    + sendNotification(message : String, recipient : User)
+    + notifyEnrollment(enrollment : Enrollment)
+    + notifyAnnouncement(course : Course, message : String)
+}
+
+class EnrollmentManager {
+    - enrollments : List<Enrollment>
+    + recordEnrollment(student : Student, course : Course) : Enrollment
+    + updateEnrollmentStatus(enrollment : Enrollment, status : EnrollmentStatus)
+    + getEnrollmentsByStudent(student : Student) : List<Enrollment>
+    + getEnrollmentsByCourse(course : Course) : List<Enrollment>
+}
+
+User o-- UserRole : roles
+Student --> Course : browses
+Instructor --> Course : publishes
+Instructor --> CourseFactory : uses
+Course "1" -- "0..*" Enrollment
+Student "1" -- "0..*" Enrollment
+Enrollment --> EnrollmentStatus
+Instructor --> NotificationService : uses
+EnrollmentManager --> Enrollment : manages
+EnrollmentManager --> NotificationService : uses
+
+@enduml
+```
+
+**Design Rationale:**
+
+1. **User Role Pattern**: Applied to support multiple roles per user (Student/Instructor) with dynamic role assignment capability, enabling future extensibility.
+
+2. **Factory Pattern**: Used `CourseFactory` abstraction with concrete factories for Undergraduate and Postgraduate courses, centralizing course creation logic and ensuring consistency.

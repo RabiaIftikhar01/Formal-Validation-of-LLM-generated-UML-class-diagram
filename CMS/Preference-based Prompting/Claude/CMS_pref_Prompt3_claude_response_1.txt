@@ -1,0 +1,132 @@
+Based on the requirements, user stories, use case diagram, and domain model provided, and following all the design practices and instructions, here is my class diagram solution:
+
+```plantuml
+@startuml
+
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    + {abstract} getInfo() : String
+    + {abstract} addRole(role : UserRole)
+    + {abstract} getRole(type : String) : UserRole
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+    + setName(name : String)
+    + setEmail(email : String)
+}
+
+abstract class UserRole extends User {
+    # core : UserCore
+    + getInfo() : String
+    + addRole(role : UserRole)
+    + getRole(type : String) : UserRole
+}
+
+class UserCore extends User {
+    - roles : List<UserRole>
+    + getInfo() : String
+    + addRole(role : UserRole)
+    + getRole(type : String) : UserRole
+}
+
+class Student extends UserRole {
+    + browseCourses() : List<Course>
+    + viewMaterial(course : Course)
+    + trackEnrollmentStatus() : List<Enrollment>
+}
+
+class Instructor extends UserRole {
+    + createCourse(course : Course) : boolean
+    + updateCourseContent(course : Course, content : String) : boolean
+    + sendAnnouncement(course : Course, message : String)
+}
+
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    - content : String
+    + {abstract} getInfo() : String
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+    + getContent() : String
+    + setTitle(title : String)
+    + setDescription(description : String)
+    + setContent(content : String)
+}
+
+class Undergraduate extends Course {
+    - level : String
+    + getInfo() : String
+}
+
+class Postgraduate extends Course {
+    - researchComponent : boolean
+    + getInfo() : String
+}
+
+class Enrollment {
+    - enrollmentId : String
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + getEnrollmentId() : String
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + setStatus(status : EnrollmentStatus)
+    + updateStatus(newStatus : EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    WAITLISTED
+    ACTIVE
+    COMPLETED
+}
+
+class NotificationService {
+    - static instance : NotificationService
+    + getInstance() : NotificationService
+    + sendNotification(message : String, recipient : User)
+    + notifyEnrollment(enrollment : Enrollment)
+    + notifyAnnouncement(course : Course, message : String)
+}
+
+abstract class CourseFactory {
+    + {abstract} createCourse(type : String) : Course
+}
+
+class UniversityCourseFactory extends CourseFactory {
+    + createCourse(type : String) : Course
+}
+
+class AuthorizationService {
+    - static instance : AuthorizationService
+    + getInstance() : AuthorizationService
+    + canCreateCourse(user : User) : boolean
+    + canUpdateCourse(user : User) : boolean
+}
+
+UserRole --> UserCore : core
+UserCore o-- UserRole : roles
+
+Student "0..*" -- "0..*" Course
+(Student, Course) .. Enrollment
+
+Enrollment --> EnrollmentStatus
+
+Instructor "1" --> "0..*" Course : creates
+
+CourseFactory ..> Course : creates
+NotificationService ..> User : notifies
+AuthorizationService ..> User : authorizes
+
+@enduml
+```
+
+**Design Rationale:**
+
+1. **Decorator Pattern for User Roles**: Applied the decorator pattern to allow users to have multiple roles dynamically (e.g., a user can be both student and instructor), ensuring extensibility without modifying core User class.
+
+2. **Singleton Pattern**: Used for `NotificationService` and `AuthorizationService` to ensure single shared instances that coordinate notifications
