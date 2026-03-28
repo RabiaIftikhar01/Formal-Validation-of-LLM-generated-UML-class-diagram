@@ -1,0 +1,143 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Design Notes:
+' 1. Classes are singular nouns, short, and use consistent PascalCase.
+' 2. Attributes are carefully assigned. Operations include access specifiers (+ for public, - for private).
+' 3. Enrollment is an association class linking Student and Course to capture specific details of the relationship.
+' 4. Instructor manages Courses (create, publish, update materials), reflecting system authorization rules.
+' 5. NotificationService handles sending notifications, promoting loose coupling.
+' 6. Inheritance is used for User roles (Student, Instructor) and Course types (UndergraduateCourse, PostgraduateCourse)
+'    to allow for specialized behaviors while maintaining a common interface, adhering to "avoid multi-level inheritance".
+
+' Enums for clear state management
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum CourseType {
+  Undergraduate
+  Postgraduate
+}
+
+' Abstract base class for all system users
+abstract class User {
+  - id : String
+  - name : String
+  - email : String
+  --
+  + getInfo() : String
+}
+
+' Concrete user role: Student
+class Student {
+  --
+  + browseCourses() : List<Course>
+  + enroll(course : Course) : Enrollment
+  + viewAnnouncements() : List<Notification>
+  + trackEnrollmentStatus(enrollment : Enrollment) : EnrollmentStatus
+  + viewCourseContent(course : Course) : String
+}
+
+' Concrete user role: Instructor
+class Instructor {
+  --
+  + createCourse(title : String, description : String, type : CourseType) : Course
+  + publishCourse(course : Course) : void
+  + updateCourseMaterial(course : Course, material : String) : void
+  + sendNotification(message : String, course : Course) : void
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' Abstract base class for all course offerings
+abstract class Course {
+  - id : String
+  - title : String
+  - description : String
+  - materials : List<String> ' Simplified for now, could be a list of CourseMaterial objects
+  - isPublished : boolean = false
+  --
+  + getInfo() : String
+  + addMaterial(material : String) : void
+  + updateMaterial(oldMaterial : String, newMaterial : String) : void
+  + removeMaterial(material : String) : void
+  + publish() : void
+  + unpublish() : void
+}
+
+' Concrete course type: Undergraduate
+' This class is justified by potential future specialized logic or attributes specific to undergraduate courses.
+class UndergraduateCourse extends Course {
+  ' Example: - prerequisiteGPA : Double
+  ' Example: + getUndergraduateSpecificInfo() : String
+}
+
+' Concrete course type: Postgraduate
+' This class is justified by potential future specialized logic or attributes specific to postgraduate courses.
+class PostgraduateCourse extends Course {
+  ' Example: - researchProjectRequired : boolean
+  ' Example: + getPostgraduateSpecificInfo() : String
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association class for managing student enrollments in courses
+' Captures specific attributes of the relationship (enrollment date and status).
+class Enrollment {
+  - enrollmentDate : Date
+  - status : EnrollmentStatus
+  --
+  + updateStatus(newStatus : EnrollmentStatus) : void
+  + getStatus() : EnrollmentStatus
+  + getEnrollmentDate() : Date
+}
+
+' Represents a single notification message
+class Notification {
+  - id : String
+  - message : String
+  - timestamp : Date
+  - isRead : boolean = false
+  --
+  + markAsRead() : void
+  + getMessage() : String
+  + getTimestamp() : Date
+}
+
+' Service responsible for sending notifications
+' Decouples notification delivery from business logic classes.
+class NotificationService {
+  --
+  + send(notification : Notification, recipient : User) : void
+}
+
+' Relationships between classes
+
+' Student makes an Enrollment for a Course
+Student "1" -- "0..*" Enrollment : makes >
+Enrollment "0..*" -- "1" Course : for >
+
+' Instructor manages (creates, publishes, updates) Courses
+' Unidirectional association from Instructor to Course for better maintainability and reusability.
+Instructor "1" --> "0..*" Course : manages >
+
+' A User can receive multiple Notifications
+' Unidirectional association from Notification to User, meaning a Notification knows its recipient.
+User "1" <-- "0..*" Notification : receives >
+
+' NotificationService sends Notifications
+' Unidirectional association from NotificationService to Notification.
+NotificationService "1" --> "0..*" Notification : sends >
+
+' Instructor depends on NotificationService to send notifications
+' This is a dependency, showing that Instructor uses the service without owning it.
+Instructor .> NotificationService : uses >
+
+@enduml
+```

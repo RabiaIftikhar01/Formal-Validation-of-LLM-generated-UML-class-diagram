@@ -1,0 +1,177 @@
+The following PlantUML class diagram is designed to represent the university's digital learning environment, adhering to the provided design practices and instructions. The model aims for simplicity, clarity, and extensibility, ensuring that each element serves an explicit purpose.
+
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide circle
+skinparam classAttributeFontColor #424242
+skinparam classMethodFontColor #424242
+skinparam classBorderColor #424242
+skinparam classHeaderBackgroundColor #E0E0E0
+skinparam classBackgroundColor #FFFFFF
+skinparam arrowColor #424242
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam noteBackgroundColor #FFFDD0
+skinparam noteBorderColor #9E9E9E
+
+title University Digital Learning Environment - Class Diagram
+
+' Enums for controlled vocabularies
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+}
+
+enum CourseLevel {
+    UNDERGRADUATE
+    POSTGRADUATE
+}
+
+' Abstract base class for all users
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + receiveNotification(notification: Notification)
+}
+
+' Concrete user role: Student
+class Student {
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewAnnouncements(): List<Notification>
+    + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+    + viewCourseContent(course: Course): CourseMaterial
+    + getInfo(): String
+}
+
+' Concrete user role: Instructor
+class Instructor {
+    + createCourse(title: String, description: String, level: CourseLevel): Course
+    + updateCourseMaterial(course: Course, newContent: String)
+    + sendCourseNotification(course: Course, message: String, type: NotificationType)
+    + releaseCourse(course: Course)
+    + getInfo(): String
+}
+
+' Abstract base class for all courses
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    - material: CourseMaterial
+    --
+    + {abstract} getInfo(): String
+    + getCourseId(): String
+    + getTitle(): String
+    + getDescription(): String
+    + getCourseMaterial(): CourseMaterial
+    + setCourseMaterial(material: CourseMaterial)
+}
+
+' Concrete course type: Undergraduate
+class UndergraduateCourse {
+    + getInfo(): String
+}
+
+' Concrete course type: Postgraduate
+class PostgraduateCourse {
+    + getInfo(): String
+}
+
+' Class representing course learning materials
+class CourseMaterial {
+    - content: String
+    - lastUpdated: Date
+    --
+    + getContent(): String
+    + updateContent(newContent: String)
+    + getLastUpdated(): Date
+}
+
+' Association class for student enrollment in a course
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Class representing a notification to a user
+class Notification {
+    - notificationId: String
+    - message: String
+    - timestamp: Date
+    - type: NotificationType
+    - isRead: Boolean = false
+    --
+    + getMessage(): String
+    + getTimestamp(): Date
+    + getType(): NotificationType
+    + isRead(): Boolean
+    + markAsRead()
+}
+
+' Service class responsible for sending notifications
+class NotificationService {
+    + sendNotification(notification: Notification, recipient: User)
+}
+
+' Relationships
+
+' Inheritance Hierarchy
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Course and Material Composition
+Course "1" *-- "1" CourseMaterial : has
+
+' Enrollment Association Class
+Student "1" -- "0..*" Enrollment : makes
+Course "1" -- "0..*" Enrollment : has
+Enrollment --> EnrollmentStatus
+
+' Instructor and Course Management
+Instructor "1" --> "0..*" Course : manages
+
+' Notification System Interactions
+Instructor "1" --> "1" NotificationService : uses
+Course "1" --> "0..*" Notification : generates
+NotificationService "1" --> "0..*" Notification : sends
+Notification "1" --> "1" User : targets
+
+' Explanatory notes for complex sections or additional information
+note right of Instructor::createCourse
+  Instructor instantiates
+  UndergraduateCourse or
+  PostgraduateCourse based
+  on the provided CourseLevel.
+end note
+
+note right of Enrollment
+  This is an association class
+  that captures attributes specific
+  to the relationship between
+  a Student and a Course.
+end note
+
+note "User.receiveNotification ensures both Students and Instructors can receive system alerts and communications." as UserNotificationNote
+User . UserNotificationNote
+
+@enduml
+```

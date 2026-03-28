@@ -1,0 +1,169 @@
+```plantuml
+@startuml
+!define private -
+!define public +
+!define protected #
+!define abstract abstract
+!define static {static}
+
+' Design Practice 2, 3, 4, 23: Consistent Naming Convention (PascalCase for classes, camelCase for attributes/methods, singular nouns)
+' Design Practice 1: Aim for simplicity and readability.
+
+abstract class User {
+    private userId: String
+    private name: String
+    private email: String
+    + getUserId(): String
+    + getName(): String
+    + getEmail(): String
+    + {abstract} getInfo(): String
+}
+
+class Student {
+    ' Design Practice 6, 7: Student's core behaviors are interactions with the system,
+    ' handled by relationships and operations on other classes.
+    ' US-S1: browseAvailableCourses() - interaction with a CourseRepository/Service
+    ' US-S2: enrollInCourse(course: Course) - interaction with EnrollmentService
+    ' US-S3: viewAnnouncements() - interaction with Notification/NotificationService
+    ' US-S4: trackEnrollmentStatus() - interaction with Enrollment
+    + browseCourses()
+    + enrollInCourse(course: Course)
+    + viewCourseContent(enrollment: Enrollment)
+    + trackEnrollmentStatus()
+}
+
+class Instructor {
+    ' Design Practice 8: Instructor has a manageable set of responsibilities.
+    ' US-I1, US-I2, US-I3 are core responsibilities.
+    + createCourseOffering(title: String, description: String, type: CourseType): Course
+    + updateCourseMaterial(course: Course, material: CourseMaterial)
+    + sendNotification(notification: Notification, recipient: User)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+abstract class Course {
+    private courseId: String
+    private title: String
+    private description: String
+    private publishedDate: Date
+    private publishedBy: Instructor ' Design Practice 5: Attribute assigned carefully.
+    + getCourseId(): String
+    + getTitle(): String
+    + getDescription(): String
+    + getPublishedDate(): Date
+    + getPublishedBy(): Instructor
+    + {abstract} getInfo(): String
+    + addMaterial(material: CourseMaterial)
+    + removeMaterial(material: CourseMaterial)
+    + getMaterials(): List<CourseMaterial>
+}
+
+class UndergraduateCourse extends Course {
+    ' Design Practice 13: Avoid multi-level inheritance (directly extends Course).
+    ' Specific attributes/methods for undergraduate courses, if any
+}
+
+class PostgraduateCourse extends Course {
+    ' Specific attributes/methods for postgraduate courses, if any
+}
+
+class CourseMaterial {
+    private materialId: String
+    private title: String
+    private contentUrl: String ' Storing URL for content rather than raw content string
+    private uploadDate: Date
+    + getMaterialId(): String
+    + getTitle(): String
+    + getContentUrl(): String
+    + getUploadDate(): Date
+    + viewContent(): String
+}
+
+' Design Practice 20: Use link elements / association class when needed.
+' Enrollment captures specific details about the relationship between a Student and a Course.
+class Enrollment {
+    private enrollmentDate: Date
+    private status: EnrollmentStatus
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum NotificationType {
+    Announcement
+    Deadline
+    Submission
+    General
+}
+
+class Notification {
+    private notificationId: String
+    private message: String
+    private timestamp: Date
+    private type: NotificationType
+    private isRead: Boolean = false
+    private recipient: User ' Design Practice 5: Carefully assigned attribute for recipient.
+    + getNotificationId(): String
+    + getMessage(): String
+    + getTimestamp(): Date
+    + getType(): NotificationType
+    + isRead(): Boolean
+    + getRecipient(): User
+    + markAsRead()
+}
+
+class NotificationService {
+    ' Design Practice 10: Operation is an implementor/helper.
+    ' Design Practice 27: Loosely coupled. NotificationService handles communication,
+    ' decoupling it from specific user/course logic.
+    + sendNotification(notification: Notification)
+}
+
+' Design Practice 21, 15, 16, 17, 18, 19: Identify relationships with multiplicity and role names/relationship names.
+
+' Instructor publishes Course
+Instructor "1" -- "0..*" Course : publishes >
+
+' Course contains CourseMaterial
+Course "1" -- "0..*" CourseMaterial : contains >
+
+' Enrollment links Student and Course (Association Class)
+' A Student can have 0 to many Enrollments. An Enrollment belongs to 1 Student.
+Student "1" -- "0..*" Enrollment
+' A Course can have 0 to many Enrollments. An Enrollment is for 1 Course.
+Course "1" -- "0..*" Enrollment
+
+' User receives Notifications (Notification knows its recipient, unidirectional is simpler - DP 12)
+Notification "0..*" --> "1" User : forRecipient
+
+' NotificationService sends Notifications (Dependency - DP 27)
+NotificationService .> Notification : creates/sends >
+
+' Notes for clarity (Design Practice 25)
+note "This class represents a specific piece\nof content within a course, like a lecture,\nassignment, or reading material." as N1
+CourseMaterial .. N1
+
+note "Manages the sending of notifications\nto various users. Decouples notification\nlogic from business logic (US-SYS3)." as N2
+NotificationService .. N2
+
+note "Tracks a student's enrollment in a specific course,\nincluding status and date (US-SYS2)." as N3
+Enrollment .. N3
+
+note "Only instructors can create or update courses (US-SYS1)." as N4
+Instructor .. N4
+
+note "This design allows for different types\nof courses to extend the base Course behavior." as N5
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+N5 .. Course
+
+@enduml
+```

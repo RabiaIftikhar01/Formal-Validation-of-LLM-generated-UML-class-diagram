@@ -1,0 +1,154 @@
+```plantuml
+@startuml
+' Design Level Class Diagram for Learning Platform
+
+' Good Design Practices applied:
+' - Simplicity and Readability: Focus on core entities and relationships, clear naming.
+' - Naming Conventions: Class names are singular nouns (PascalCase), attributes/methods (camelCase).
+' - Responsibility and Cohesion: Each class has a well-defined and manageable set of responsibilities.
+' - Operations and Access Specifiers: Methods are categorized (public for external, private/protected for internal).
+' - Relationships: Identified and refined (Inheritance, Association, Dependency, Association Class).
+' - Multiplicity: Clearly defined for all associations, reflecting business rules.
+' - Unidirectionality: Preferred where feasible to reduce coupling.
+' - Association Class: 'Enrollment' effectively models the many-to-many relationship with additional attributes.
+' - Loose Coupling: 'NotificationService' decouples notification logic from other core entities.
+' - Extensibility: Design allows for easy addition of new user roles, course categories, notification types.
+
+' --- Abstract Base Classes ---
+
+abstract class User {
+    - id : String
+    - name : String
+    - email : String
+    --
+    + getInfo() : String ' Access operation
+    + receiveNotification(notification : Notification) ' Behavior for receiving notifications
+}
+
+abstract class Course {
+    - id : String
+    - title : String
+    - description : String
+    - instructor : Instructor ' Reference to the managing instructor
+    --
+    + getInfo() : String ' Access operation
+    + getResources() : List<String> ' Access operation
+    + addResource(resource : String) ' Implementor operation
+    + removeResource(resource : String) ' Implementor operation
+    + triggerCourseNotification(type : NotificationType, message : String) ' Implementor operation
+}
+
+' --- Concrete Classes ---
+
+class Student {
+    --
+    + browseCourses() ' Implementor operation
+    + enrollInCourse(course : Course) : Enrollment ' Implementor operation
+    + viewAnnouncements() ' Implementor operation
+    + trackEnrollmentStatus() ' Implementor operation
+    + accessCourseResources(course : Course) ' Implementor operation
+}
+
+class Instructor {
+    --
+    + publishCourse(category : CourseCategory, title : String, description : String) : Course ' Implementor operation
+    + updateCourseContent(course : Course, newContent : String) ' Implementor operation
+    + sendNotification(notification : Notification, course : Course) ' Implementor operation (delegates to NotificationService)
+}
+
+class UndergraduateCourse extends Course {
+    ' Specific attributes/operations for undergraduate courses, if any
+}
+
+class PostgraduateCourse extends Course {
+    ' Specific attributes/operations for postgraduate courses, if any
+}
+
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    --
+    + getStatus() : EnrollmentStatus ' Access operation
+    + updateStatus(newStatus : EnrollmentStatus) ' Implementor operation
+}
+
+class Notification {
+    - id : String
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    --
+    + getMessage() : String ' Access operation
+}
+
+class NotificationService {
+    - {static} instance : NotificationService ' Singleton instance
+    - NotificationService() ' Private constructor to enforce Singleton pattern
+    --
+    + {static} getInstance() : NotificationService ' Access operation for singleton
+    + sendNotification(notification : Notification, recipient : User) ' Implementor operation
+}
+
+' --- Enums ---
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+}
+
+enum CourseCategory {
+    Undergraduate
+    Postgraduate
+}
+
+' --- Relationships ---
+
+' Inheritance Relationships
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association Class: Enrollment links Student and Course with specific details
+(Student, Course) .. Enrollment : enrolls in >
+Enrollment "1" -- "1" Student : for
+Enrollment "1" -- "1" Course : of
+
+' Instructor manages Courses (Composition/Aggregation could be considered, but association is sufficient)
+' An Instructor publishes and is responsible for 0 or more Courses.
+' A Course is managed by exactly one Instructor.
+Instructor "1" -- "0..*" Course : manages >
+
+' Dependency: Course triggers notifications via NotificationService
+' E.g., for automated announcements or deadline reminders.
+Course ..> NotificationService : triggers
+
+' Dependency: Instructor sends notifications via NotificationService
+' E.g., for manual announcements or updates to participants.
+Instructor ..> NotificationService : sends
+
+' Dependency: NotificationService sends notifications to Users
+NotificationService ..> User : notifies
+
+' Aggregation: NotificationService manages Notification objects for sending.
+NotificationService "1" *-- "0..*" Notification : processes >
+
+' --- Explanatory Notes ---
+note "Represents an individual's participation \nin a specific course, tracking status and date." as EnrollmentNote
+Enrollment .. EnrollmentNote
+
+note "A singleton service responsible for \ncentralized delivery of various types of notifications." as NotificationServiceNote
+NotificationService .. NotificationServiceNote
+
+note "Instructors are exclusively authorized to \npublish and update course content." as InstructorAuthNote
+Instructor -[hidden]-> InstructorAuthNote
+
+@enduml
+```

@@ -1,0 +1,150 @@
+@startuml
+!pragma layout smetana
+
+' Design Practices Applied:
+' 1. Simplicity: Model is focused on core entities and their interactions without over-complicating.
+' 2. Naming: Classes are singular nouns (PascalCase), attributes/methods are camelCase.
+' 3. Short Names: Class names are concise and descriptive.
+' 4. Consistent Casing: All classes follow PascalCase.
+' 5. Attribute Assignment: Attributes are assigned to appropriate classes (e.g., courseMaterials to CourseOffering, enrollmentDate to Enrollment).
+' 6. Operations: Classes have a reasonable set of operations representing their responsibilities.
+' 7. No Operation Classes: All classes have operations or are enums/abstract bases.
+' 8. Manageable Responsibilities: Classes like CourseOffering encapsulate offering-specific logic.
+' 9. Access Methods: Public getters are provided for key attributes.
+' 10. Access Specifiers: `+` for public, `-` for private, `{abstract}` for abstract methods.
+' 11. Reduced Relationships: Relationships are purposeful and not excessive.
+' 12. Unidirectional Associations: Where logical, associations are unidirectional (e.g., CourseOffering knows its CourseDefinition).
+' 13. No Multi-level Inheritance: Inheritance depth is kept shallow (max 1 level for concrete classes).
+' 14. No Circular Dependency: No circular dependencies between core domain classes.
+' 15. Multiplicity: Explicitly defined for all associations.
+' 16. Relationship/Role Names: Used where beneficial for clarity (e.g., "manages / creates", "defines").
+' 20. Association Class: 'Enrollment' is correctly modeled as an association class.
+' 21. Identify Relationships: All key relationships (inheritance, association, dependency) are identified.
+' 22. Standard UML Notations: Standard PlantUML notations are used.
+' 23. Descriptive Names: Names are clear and meaningful.
+' 24. Constant Style: Consistent naming and layout.
+' 25. Explanatory Notes: A note is added for overall clarity.
+' 26. Avoid Redundancy: Information is stored in one logical place.
+' 27. Loose Coupling: NotificationService decouples notification logic.
+
+' Abstract Base Classes
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    + {abstract} getInfo(): String
+    + receiveNotification(message: String) : void
+}
+
+abstract class CourseDefinition {
+    - courseId: String
+    - title: String
+    - description: String
+    + {abstract} getInfo(): String
+}
+
+' Concrete User Roles
+class Student extends User {
+    + browseCourses(): List<CourseOffering>
+    + enrollInCourse(offering: CourseOffering): Enrollment
+    + viewCourseContent(offering: CourseOffering): String
+    + viewAnnouncements(offering: CourseOffering): List<String>
+    + trackEnrollmentStatus(): List<Enrollment>
+}
+
+class Instructor extends User {
+    + createCourseOffering(courseDef: CourseDefinition, term: String, year: int): CourseOffering
+    + updateCourseMaterials(offering: CourseOffering, materials: String): void
+    + releaseCourseOffering(offering: CourseOffering): void
+    + sendCourseAnnouncement(offering: CourseOffering, message: String): void
+}
+
+' Concrete Course Types
+class UndergraduateCourse extends CourseDefinition {
+    - credits: int
+    + getInfo(): String
+}
+
+class PostgraduateCourse extends CourseDefinition {
+    - researchFocus: String
+    + getInfo(): String
+}
+
+' Course Offering (Specific instance of a CourseDefinition for a term)
+class CourseOffering {
+    - offeringId: String
+    - academicTerm: String
+    - year: int
+    - isReleased: boolean = false
+    - courseMaterials: String
+    - announcements: List<String>
+    + getOfferingId(): String
+    + getAcademicTerm(): String
+    + getYear(): int
+    + isReleased(): boolean
+    + getCourseMaterials(): String
+    + addAnnouncement(message: String): void
+    + getAnnouncements(): List<String>
+}
+
+' Association Class for Enrollment
+class Enrollment {
+    - enrollmentId: String
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    + getEnrollmentId(): String
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus): void
+}
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+    Dropped
+}
+
+' Service for Notifications - Loosely Coupled
+class NotificationService {
+    + sendNotification(message: String, recipient: User): void
+}
+
+' Relationships
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+CourseDefinition <|-- UndergraduateCourse
+CourseDefinition <|-- PostgraduateCourse
+
+' Associations
+Instructor "1" --> "0..*" CourseOffering : manages / creates
+' An Instructor can create and manage multiple CourseOfferings. Each CourseOffering is managed by one Instructor.
+
+CourseOffering "1" --> "1" CourseDefinition : defines
+' A CourseOffering is based on exactly one CourseDefinition. A CourseDefinition can have many CourseOfferings.
+
+Student "1" -- "0..*" Enrollment : has
+CourseOffering "1" -- "0..*" Enrollment : contains
+' Enrollment is an association class connecting a Student and a CourseOffering.
+' A Student can have many Enrollments. A CourseOffering can contain many Enrollments.
+
+' Dependencies / Usage
+CourseOffering .> NotificationService : sends announcements via
+' CourseOffering uses the NotificationService to send announcements to enrolled students.
+
+User .> NotificationService : receives notifications from
+' Users are recipients of notifications handled by the NotificationService.
+
+note as N1
+    This diagram models the digital learning environment:
+    - Users (Student, Instructor) inherit core User properties.
+    - Courses are defined abstractly (CourseDefinition) and offered concretely (CourseOffering).
+    - Instructors manage CourseOfferings, updating materials and sending announcements.
+    - Students enroll in CourseOfferings, track status, and view content/announcements.
+    - Enrollment is an association class for tracking student-course relationships.
+    - NotificationService handles all alerts, promoting loose coupling.
+end note
+
+@enduml

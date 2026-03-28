@@ -1,0 +1,185 @@
+```plantuml
+@startuml
+' Set a consistent style for readability
+skinparam class {
+    BorderColor #A3B18A
+    BackgroundColor #DAD7CD
+    ArrowColor #344E41
+    FontColor #344E41
+}
+skinparam enum {
+    BorderColor #A3B18A
+    BackgroundColor #DAD7CD
+    ArrowColor #344E41
+    FontColor #344E41
+}
+skinparam interface {
+    BorderColor #A3B18A
+    BackgroundColor #DAD7CD
+    ArrowColor #344E41
+    FontColor #344E41
+}
+skinparam note {
+    BackgroundColor #FBEEDC
+    BorderColor #A3B18A
+    FontColor #344E41
+}
+
+' --- 1. User and Roles Hierarchy ---
+abstract class User {
+    - id: String
+    - name: String
+    - email: String
+    + {abstract} getInfo(): String
+    + getId(): String
+    + getName(): String
+    + getEmail(): String
+}
+
+class Student {
+    ' Operations that a Student initiates, typically delegated to services
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewAnnouncements(): List<Notification>
+    + trackEnrollmentStatus(): EnrollmentStatus
+    + viewCourseMaterial(course: Course): List<CourseMaterial>
+}
+
+class Instructor {
+    ' Operations that an Instructor initiates, typically delegated to services
+    + createCourse(title: String, description: String, category: CourseCategory): Course
+    + updateCourseContent(course: Course, material: CourseMaterial): void
+    + sendNotification(course: Course, subject: String, message: String): void
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' --- 2. Course and Categories Hierarchy ---
+abstract class Course {
+    - id: String
+    - title: String
+    - description: String
+    + {abstract} getInfo(): String
+    + getId(): String
+    + getTitle(): String
+    + getDescription(): String
+    + addCourseMaterial(material: CourseMaterial): void
+    + getCourseMaterials(): List<CourseMaterial>
+}
+
+class UndergraduateCourse extends Course {
+    + getInfo(): String
+}
+
+class PostgraduateCourse extends Course {
+    + getInfo(): String
+}
+
+enum CourseCategory {
+    Undergraduate
+    Postgraduate
+}
+
+' Relationship: An Instructor publishes/manages multiple Courses
+Instructor "1" -- "0..*" Course : publishes >
+
+' --- 3. Course Materials ---
+class CourseMaterial {
+    - id: String
+    - title: String
+    - contentUrl: String
+    - type: String ' e.g., "PDF", "Video", "Link"
+    + getId(): String
+    + getTitle(): String
+    + getContentUrl(): String
+    + getType(): String
+}
+
+' Relationship: A Course contains multiple CourseMaterials
+Course "1" o-- "0..*" CourseMaterial : contains >
+
+' --- 4. Enrollment (Association Class) ---
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus): void
+}
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Association class: Enrollment captures attributes of the relationship between Student and Course
+Student "1" -- "0..*" Enrollment : has
+Course "1" -- "0..*" Enrollment : includes
+
+' --- 5. Notifications ---
+class Notification {
+    - id: String
+    - subject: String
+    - message: String
+    - timestamp: Date
+    - status: String ' e.g., "Sent", "Delivered", "Read"
+    + getId(): String
+    + getSubject(): String
+    + getMessage(): String
+    + getTimestamp(): Date
+    + getStatus(): String
+    + markAsRead(): void
+}
+
+class NotificationService {
+    ' Core business logic: sending and retrieving notifications
+    + sendNotification(recipient: User, subject: String, message: String): Notification
+    + getNotificationsForUser(user: User): List<Notification>
+}
+
+' Relationship: NotificationService creates and manages Notification objects
+NotificationService "1" o-- "0..*" Notification : creates >
+' Relationship: A User can receive many Notifications, a Notification has one recipient
+User "1" -- "0..*" Notification : receives >
+
+' --- 6. Service Layers (for loose coupling and responsibility separation) ---
+' These services encapsulate business logic and manage data interactions, promoting maintainability and extensibility.
+class CourseService {
+    + createCourse(instructor: Instructor, title: String, description: String, category: CourseCategory): Course
+    + updateCourseContent(course: Course, material: CourseMaterial): void
+    + getCourseById(id: String): Course
+    + getAllCourses(): List<Course>
+}
+
+class EnrollmentService {
+    + enrollStudentInCourse(student: Student, course: Course): Enrollment
+    + updateEnrollmentStatus(enrollment: Enrollment, newStatus: EnrollmentStatus): void
+    + getEnrollmentsForStudent(student: Student): List<Enrollment>
+}
+
+' Dependencies: Users/Classes use services to perform actions, indicating loose coupling.
+Student ..> CourseService : uses
+Student ..> EnrollmentService : uses
+Student ..> NotificationService : uses
+
+Instructor ..> CourseService : uses
+Instructor ..> NotificationService : uses
+
+' Internal dependencies for services
+CourseService ..> Instructor
+CourseService ..> Course
+CourseService ..> CourseMaterial
+CourseService ..> CourseCategory
+
+EnrollmentService ..> Student
+EnrollmentService ..> Course
+EnrollmentService ..> Enrollment
+EnrollmentService ..> EnrollmentStatus
+
+NotificationService ..> User
+NotificationService ..> Notification
+
+@enduml
+```

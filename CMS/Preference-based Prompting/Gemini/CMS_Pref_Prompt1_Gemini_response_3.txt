@@ -1,0 +1,184 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Enums for clear status and type definitions
+enum EnrollmentStatus {
+    WAITLISTED
+    ACTIVE
+    COMPLETED
+}
+
+enum MaterialType {
+    DOCUMENT
+    VIDEO
+    LINK
+    QUIZ
+}
+
+enum NotificationType {
+    ANNOUNCEMENT
+    DEADLINE
+    SUBMISSION
+    GENERAL
+}
+
+' Abstract base classes for extensibility
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    + {abstract} getInfo(): String
+    + receiveNotification(notification: Notification) : void
+}
+
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    + {abstract} getCourseType(): String
+    + getInfo(): String
+}
+
+' Concrete User roles
+class Student {
+    + browseCourseOfferings(): List<CourseOffering>
+    + enrollInCourseOffering(offering: CourseOffering): Enrollment
+    + viewAnnouncements(offering: CourseOffering): List<Announcement>
+    + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+    + viewCourseMaterial(material: CourseMaterial) : void
+}
+
+class Instructor {
+    + createCourseOffering(course: Course, term: String, capacity: int): CourseOffering
+    + publishCourseOffering(offering: CourseOffering) : void
+    + updateCourseMaterial(offering: CourseOffering, material: CourseMaterial) : void
+    + addAnnouncement(offering: CourseOffering, title: String, content: String): Announcement
+    + sendNotificationToEnrolled(message: String, type: NotificationType, offering: CourseOffering) : void
+}
+
+' Concrete Course types
+class UndergraduateCourse {
+    + getCourseType(): String
+}
+
+class PostgraduateCourse {
+    + getCourseType(): String
+}
+
+' Represents a specific instance of a course being offered
+class CourseOffering {
+    - offeringId: String
+    - academicTerm: String
+    - maxCapacity: int
+    - status: String ' e.g., "Draft", "Published", "Archived"
+    + getCourseMaterials(): List<CourseMaterial>
+    + getAnnouncements(): List<Announcement>
+    + addMaterial(material: CourseMaterial) : void
+    + removeMaterial(material: CourseMaterial) : void
+    + updateStatus(newStatus: String) : void
+}
+
+' Represents a learning resource within a course offering
+class CourseMaterial {
+    - materialId: String
+    - title: String
+    - contentUrl: String
+    - uploadDate: Date
+    + type: MaterialType
+    + viewContent(): String ' Returns URL or content identifier
+    + updateContent(newContentUrl: String) : void
+}
+
+' Represents a student's enrollment in a course offering
+class Enrollment {
+    - enrollmentId: String
+    - enrollmentDate: Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus) : void
+}
+
+' Represents an announcement made for a course offering
+class Announcement {
+    - announcementId: String
+    - title: String
+    - content: String
+    - publishDate: Date
+    + getDetails(): String
+}
+
+' Represents a notification sent to a user
+class Notification {
+    - notificationId: String
+    - message: String
+    - timestamp: Date
+    - isRead: boolean = false
+    + type: NotificationType
+    + markAsRead() : void
+    + getDetails(): String
+}
+
+' Service for handling notification delivery, promoting loose coupling
+class NotificationService {
+    + sendNotification(message: String, type: NotificationType, recipient: User): Notification
+    + sendBulkNotification(message: String, type: NotificationType, recipients: List<User>): List<Notification>
+}
+
+
+' Relationships
+
+' Inheritance hierarchies
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Instructor creates and manages CourseOfferings
+Instructor "1" o-- "0..*" CourseOffering : manages >
+
+' A Course defines the content for a CourseOffering
+Course "1" -- "0..*" CourseOffering : defines >
+
+' A CourseOffering includes multiple CourseMaterials
+CourseOffering "1" o-- "0..*" CourseMaterial : includes >
+
+' A CourseOffering publishes multiple Announcements
+CourseOffering "1" o-- "0..*" Announcement : publishes >
+
+' Student and CourseOffering are linked through Enrollment
+Student "1" -- "0..*" Enrollment : enrollsIn >
+CourseOffering "1" -- "0..*" Enrollment : has >
+
+' Enrollment has a specific status
+Enrollment "1" -- "1" EnrollmentStatus : hasStatus >
+
+' A User can receive multiple Notifications
+User "1" -- "0..*" Notification : receives >
+
+' A Notification has a specific type
+Notification "1" -- "1" NotificationType : hasType >
+
+' NotificationService creates and delivers Notifications
+NotificationService "1" --> "*" Notification : creates >
+NotificationService "1" --> "*" User : deliversTo >
+
+' Instructor requests the NotificationService to send notifications
+Instructor --> NotificationService : requests >
+
+' Student interacts with CourseOfferings to view content and announcements
+Student --> CourseOffering : interactsWith >
+
+
+' Notes for additional context and system responsibilities
+note "Only instructors can create and publish CourseOfferings.\nSystem ensures proper authorization (US-SYS1)." as N1
+Instructor .right. N1
+
+note "Enrollment records include date and status.\nSystem automatically records these upon enrollment (US-SYS2)." as N2
+Enrollment .right. N2
+
+note "Notifications are delivered to recipients\nthrough the NotificationService (US-SYS3)." as N3
+NotificationService .right. N3
+
+@enduml
+```

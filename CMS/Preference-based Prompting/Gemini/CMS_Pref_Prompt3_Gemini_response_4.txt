@@ -1,0 +1,132 @@
+```plantuml
+@startuml
+!pragma usecases
+skinparam classAttributeIconSize 0
+
+' Abstract User and concrete roles
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + getEmail(): String
+}
+
+class Student {
+    --
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewCourseAnnouncements(course: Course): List<Notification>
+    + viewCourseMaterial(material: CourseMaterial)
+    + getMyEnrollments(): List<Enrollment>
+}
+
+class Instructor {
+    --
+    + createCourse(title: String, desc: String, level: CourseLevel): Course
+    + updateCourseMaterial(course: Course, material: CourseMaterial)
+    + publishAnnouncement(course: Course, message: String)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' Abstract Course and concrete types
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    --
+    + {abstract} getLevel(): CourseLevel
+    + getCourseInfo(): String
+    + addMaterial(material: CourseMaterial)
+    + getMaterials(): List<CourseMaterial>
+}
+
+enum CourseLevel {
+    UNDERGRADUATE
+    POSTGRADUATE
+}
+
+class UndergraduateCourse extends Course {
+    + getLevel(): CourseLevel
+}
+
+class PostgraduateCourse extends Course {
+    + getLevel(): CourseLevel
+}
+
+' Enrollment as an Association Class
+class Enrollment {
+    - enrollmentId: String
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    WAITLISTED
+    ACTIVE
+    COMPLETED
+}
+
+' Notification System
+class NotificationService {
+    --
+    + deliver(notification: Notification)
+}
+
+class Notification {
+    - notificationId: String
+    - message: String
+    - timestamp: Date
+    --
+    + getMessage(): String
+    + getTimestamp(): Date
+}
+
+' Course Materials
+class CourseMaterial {
+    - materialId: String
+    - title: String
+    - content: String
+    - uploadDate: Date
+    --
+    + getContent(): String
+}
+
+' Relationships
+Student "1" -- "0..*" Enrollment : enrollsIn >
+Course "1" -- "0..*" Enrollment : hasEnrollment >
+
+Instructor "1" -- "0..*" Course : manages >
+Course "1" o-- "0..*" CourseMaterial : contains >
+
+NotificationService "1" --> "0..*" Notification : sends >
+Notification "1" --> "0..*" User : recipients >
+Course "1" --> "0..*" Notification : generates >
+
+' Notes for clarity
+note right of Notification
+  A Notification encapsulates alerts
+  like announcements or deadlines.
+  It can target multiple users.
+end note
+
+note right of Instructor
+  Instructor methods like 'publishAnnouncement'
+  create a Notification and pass it to the
+  NotificationService for delivery.
+end note
+
+note left of Enrollment
+  This is an association class, providing
+  specific details about a student's
+  enrollment in a particular course.
+end note
+
+@enduml
+```

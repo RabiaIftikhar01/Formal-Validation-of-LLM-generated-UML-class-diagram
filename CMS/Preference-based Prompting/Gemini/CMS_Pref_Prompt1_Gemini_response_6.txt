@@ -1,0 +1,110 @@
+@startuml
+' Set theme for better readability
+!theme plain
+
+' Define abstract User class
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    + getInfo() : String
+    + receiveNotification(notification : Notification)
+}
+
+' Define concrete Student class
+class Student {
+    + browseCourses()
+    + enrollInCourse(course : Course) : Enrollment
+    + viewEnrolledCourseContent(enrollment : Enrollment) : String
+    + trackEnrollmentStatus(enrollment : Enrollment) : EnrollmentStatus
+}
+
+' Define concrete Instructor class
+class Instructor {
+    + createCourse(title : String, description : String, type : CourseType) : Course
+    + updateCourseMaterial(course : Course, material : String)
+    + sendCourseAnnouncement(course : Course, message : String)
+}
+
+' User generalization
+User <|-- Student
+User <|-- Instructor
+
+' Define abstract Course class
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    + getInfo() : String
+    + getCourseContent() : String
+}
+
+' Define concrete course types
+class UndergraduateCourse extends Course {}
+class PostgraduateCourse extends Course {}
+
+' Instructor manages Course (creates, updates)
+Instructor "1" -- "0..*" Course : manages >
+
+' Define EnrollmentStatus enumeration
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Define Enrollment as an association class between Student and Course
+' This captures the specific details of a student's enrollment in a course.
+Student "1" -- "0..*" Course
+(Student, Course) .. Enrollment
+
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + updateStatus(newStatus : EnrollmentStatus)
+    + getStudent() : Student
+    + getCourse() : Course
+}
+
+' Define Notification class
+class Notification {
+    - notificationId : String
+    - message : String
+    - timestamp : Date
+    - type : String ' e.g., "Announcement", "Deadline", "Submission"
+    - isRead : Boolean = false
+    + getMessage() : String
+    + getTimestamp() : Date
+    + markAsRead()
+}
+
+' User receives Notifications
+User "1" <-- "0..*" Notification : receives <
+
+' Notification pertains to a Course (optional, for context)
+Notification "0..*" -- "0..1" Course : pertainsTo >
+
+' Define NotificationService
+class NotificationService {
+    + sendNotification(recipient : User, message : String, type : String, relatedCourse : Course = null) : Notification
+}
+
+' Instructor uses NotificationService to send notifications
+Instructor .> NotificationService : uses >
+
+' Enrollment can be viewed by Student
+Student .> Enrollment : views >
+
+' Notes for clarity
+note "Only Instructors can create/update Courses" as N1
+Course -[hidden]-> N1
+
+note "Enrollment captures specific student-course link details" as N2
+Enrollment -[hidden]-> N2
+
+note "Notifications are delivered to Users via NotificationService" as N3
+NotificationService -[hidden]-> N3
+
+@enduml

@@ -1,0 +1,126 @@
+```plantuml
+@startuml
+
+!define private -
+!define public +
+!define protected #
+!define abstract abstract
+
+' Enums
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+' Abstract Base Classes
+abstract class User {
+  private userId: String
+  private name: String
+  private email: String
+  public abstract getInfo(): String
+  public getName(): String
+  public getEmail(): String
+}
+
+abstract class Course {
+  private courseId: String
+  private title: String
+  private description: String
+  protected materials: List<String>
+  private instructor: Instructor ' A course is taught by one instructor
+  public abstract getInfo(): String
+  public getCourseId(): String
+  public getTitle(): String
+  public getDescription(): String
+  public viewContent(): List<String>
+  public getInstructor(): Instructor
+  public addMaterial(material: String): void
+  public removeMaterial(material: String): void
+}
+
+' Concrete User Roles
+class Student {
+  private enrollments: List<Enrollment> ' Tracks enrollments for this student
+  public browseCourses(): List<Course>
+  public enrollInCourse(course: Course): Enrollment
+  public viewAnnouncements(): List<String>
+  public trackEnrollmentStatus(course: Course): EnrollmentStatus
+}
+
+class Instructor {
+  private taughtCourses: List<Course> ' Tracks courses managed by this instructor
+  public createUndergraduateCourse(title: String, description: String): UndergraduateCourse
+  public createPostgraduateCourse(title: String, description: String): PostgraduateCourse
+  public updateCourseMaterial(course: Course, oldMaterial: String, newMaterial: String): void
+  public sendCourseNotification(course: Course, message: String): void
+  public releaseCourse(course: Course): void
+}
+
+' Concrete Course Types
+class UndergraduateCourse extends Course {
+  public getInfo(): String
+}
+
+class PostgraduateCourse extends Course {
+  public getInfo(): String
+}
+
+' Association Class
+class Enrollment {
+  private enrollmentDate: Date
+  private status: EnrollmentStatus
+  public getEnrollmentDate(): Date
+  public getStatus(): EnrollmentStatus
+  public setStatus(status: EnrollmentStatus): void
+}
+
+' Services
+class NotificationService {
+  private static instance: NotificationService
+  private NotificationService()
+  public static getInstance(): NotificationService
+  public sendNotification(recipient: User, message: String): void
+}
+
+' Relationships
+
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Student has Enrollments
+Student "1" -- "0..*" Enrollment : hasEnrollment >
+
+' Course has Enrollments
+Course "1" -- "0..*" Enrollment : includesEnrollment >
+
+' Instructor teaches/manages Courses
+Instructor "1" -- "0..*" Course : manages >
+Course "0..*" -- "1" Instructor : taughtBy
+
+' NotificationService interacts with Users (dependency)
+NotificationService .> User : sendsTo
+
+' Student views course content (dependency)
+Student .> Course : views
+
+' Instructor uses NotificationService (dependency)
+Instructor .> NotificationService : uses
+
+' Notes for clarity
+note left of NotificationService
+  Singleton pattern
+  ensures one instance.
+end note
+
+note right of Enrollment
+  Association class
+  captures attributes of
+  Student-Course relationship.
+end note
+
+@enduml
+```

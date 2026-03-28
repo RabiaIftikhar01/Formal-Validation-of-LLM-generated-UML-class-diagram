@@ -1,0 +1,184 @@
+```plantuml
+@startuml
+' Set a consistent style for the diagram
+skinparam class {
+    BackgroundColor White
+    BorderColor #222222
+    ArrowColor #222222
+    FontSize 12
+    FontColor #222222
+}
+skinparam enum {
+    BackgroundColor White
+    BorderColor #222222
+    ArrowColor #222222
+    FontSize 12
+    FontColor #222222
+}
+skinparam abstract {
+    BackgroundColor #F0F0F0
+}
+
+' Define abstract User class and its concrete subclasses
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + receiveNotification(notification: Notification)
+}
+
+class Student extends User {
+    --
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewAnnouncements(course: Course): List<Notification>
+    + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+    + accessCourseResource(resource: CourseResource)
+}
+
+class Instructor extends User {
+    --
+    + createCourse(title: String, description: String, category: CourseCategory): Course
+    + updateCourseContent(course: Course, resource: CourseResource)
+    + sendCourseNotification(course: Course, message: String, type: NotificationType)
+}
+
+' Define abstract Course class and its concrete subclasses
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    --
+    + {abstract} getInfo(): String
+    + addResource(resource: CourseResource)
+    + removeResource(resource: CourseResource)
+    + getResources(): List<CourseResource>
+}
+
+class UndergraduateCourse extends Course {
+    ' Specific methods/attributes for undergraduate courses if any
+}
+
+class PostgraduateCourse extends Course {
+    ' Specific methods/attributes for postgraduate courses if any
+}
+
+' Define Enrollment as an association class
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Define CourseResource for managing course materials
+class CourseResource {
+    - resourceId: String
+    - name: String
+    - type: String ' e.g., "PDF", "Video", "Link"
+    - url: String
+    --
+    + getUrl(): String
+}
+
+' Define Notification and its associated enum
+class Notification {
+    - notificationId: String
+    - message: String
+    - timestamp: Date
+    - type: NotificationType
+    --
+    + getMessage(): String
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+}
+
+' Define NotificationService for centralized notification handling
+class NotificationService {
+    --
+    + send(notification: Notification, recipients: List<User>)
+}
+
+' Define CourseCategory for course creation (used as a parameter)
+enum CourseCategory {
+    Undergraduate
+    Postgraduate
+}
+
+' Relationships
+
+' Inheritance hierarchy for Users and Courses
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association class: Enrollment between Student and Course
+Student "1" -- "0..*" Enrollment : makes
+Course "1" -- "0..*" Enrollment : for
+
+' Instructor publishes Courses
+Instructor "1" --> "0..*" Course : publishes >
+
+' Course contains CourseResources (Composition: Course owns its resources)
+Course "1" *-- "0..*" CourseResource : contains
+
+' Notification is sent to multiple Users (Aggregation: Notification has recipients)
+Notification "1" o-- "1..*" User : recipients >
+
+' Instructor uses NotificationService to send notifications
+Instructor ..> NotificationService : uses >
+
+' Course triggers notifications through NotificationService (e.g., for announcements)
+Course ..> NotificationService : triggers >
+
+' NotificationService creates Notification objects
+NotificationService ..> Notification : creates >
+
+' Notes for clarity and additional information
+note top of User
+  Abstract base for all platform users.
+  Ensures common identity and notification handling.
+end note
+
+note bottom of Student
+  Can only view course materials,
+  not modify them.
+end note
+
+note right of Instructor::sendCourseNotification
+  This operation utilizes the
+  NotificationService to deliver
+  notifications to participants.
+end note
+
+note top of Enrollment
+  Captures specific details
+  of a student's enrollment in a course.
+end note
+
+note left of CourseResource
+  Represents various types of
+  learning materials within a course.
+end note
+
+note right of NotificationService
+  A singleton-like service responsible
+  for orchestrating the delivery of
+  all system notifications.
+end note
+
+@enduml
+```

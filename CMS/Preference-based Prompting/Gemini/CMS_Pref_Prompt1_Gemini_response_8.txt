@@ -1,0 +1,161 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Enums
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+' Abstract Base Classes
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  --
+  + {abstract} getInfo(): String
+  + receiveNotification(notification: Notification) : void
+}
+
+abstract class Course {
+  - courseId: String
+  - title: String
+  - description: String
+  --
+  + {abstract} getInfo(): String
+  + getCourseId(): String
+  + getTitle(): String
+}
+
+' Concrete User Classes
+class Student {
+  --
+  + browseCourseOfferings(): List<CourseOffering>
+  + enrollInCourseOffering(offering: CourseOffering): Enrollment
+  + viewAnnouncements(): List<Notification>
+  + trackEnrollmentStatus(enrollmentId: String): EnrollmentStatus
+}
+
+class Instructor {
+  --
+  + createCourseOffering(course: Course, details: Map): CourseOffering
+  + publishCourseOffering(offering: CourseOffering): void
+  + updateCourseMaterial(offering: CourseOffering, material: Material): void
+  + sendNotification(message: String, recipients: List<User>): void
+}
+
+' Concrete Course Classes
+class UndergraduateCourse {
+  --
+  + getInfo(): String
+}
+
+class PostgraduateCourse {
+  --
+  + getInfo(): String
+}
+
+' Other Core Classes
+class CourseOffering {
+  - offeringId: String
+  - startDate: Date
+  - endDate: Date
+  - status: String ' e.g., "Open", "Closed", "Archived"
+  --
+  + getOfferingId(): String
+  + addMaterial(material: Material): void
+  + removeMaterial(materialId: String): void
+  + getMaterials(): List<Material>
+  + notifyEnrolledStudents(message: String): void
+}
+
+class Material {
+  - materialId: String
+  - title: String
+  - type: String ' e.g., "Lecture", "Assignment", "Reading"
+  - contentUrl: String
+  --
+  + getMaterialId(): String
+  + getTitle(): String
+  + getType(): String
+  + getContentUrl(): String
+}
+
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  - isRead: Boolean = false
+  --
+  + getMessage(): String
+  + getTimestamp(): Date
+  + markAsRead(): void
+}
+
+class NotificationService {
+  --
+  + sendNotification(message: String, recipient: User): Notification
+  + sendNotificationToMultiple(message: String, recipients: List<User>): List<Notification>
+}
+
+' Inheritance Relationships
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Associations
+
+' Instructor creates and manages CourseOfferings
+Instructor "1" -- "0..*" CourseOffering : creates >
+note on link: Instructor is the creator of the offering
+
+' CourseOffering is a specific instance of a Course type
+CourseOffering "1" -- "1" Course : isOfType >
+
+' CourseOffering contains multiple Materials
+CourseOffering "1" -- "0..*" Material : contains >
+
+' Association Class for Enrollment between Student and CourseOffering
+(Student, CourseOffering) .. Enrollment
+class Enrollment {
+  - enrollmentId: String
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  --
+  + getEnrollmentId(): String
+  + getEnrollmentDate(): Date
+  + getStatus(): EnrollmentStatus
+  + updateStatus(newStatus: EnrollmentStatus): void
+}
+Student "1" o-- "0..*" Enrollment : has >
+CourseOffering "1" o-- "0..*" Enrollment : has >
+
+' Enrollment has a specific status
+Enrollment "1" *-- "1" EnrollmentStatus : has >
+
+' Users receive Notifications
+User "1" <-- "0..*" Notification : receives / recipient >
+
+' NotificationService creates Notification records
+NotificationService "1" -- "0..*" Notification : creates >
+
+' Dependencies (indicating usage of a service)
+Instructor ..> NotificationService : uses >
+CourseOffering ..> NotificationService : uses >
+
+' Explanatory notes
+note "Only Instructors can create or update courses (US-SYS1)." as N1
+Instructor .. N1
+
+note "Enrollment records automatically include date and status (US-SYS2)." as N2
+Enrollment .. N2
+
+note "Notifications are delivered to recipients through the NotificationService (US-SYS3)." as N3
+NotificationService .. N3
+
+@enduml
+```

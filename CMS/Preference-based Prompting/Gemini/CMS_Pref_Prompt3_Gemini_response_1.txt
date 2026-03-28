@@ -1,0 +1,195 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide circle
+' Set skin parameters for a cleaner look
+skinparam class {
+    AttributeFontColor #115577
+    MethodFontColor #115577
+    BackgroundColor #FEFECE
+    BorderColor #888811
+    ArrowColor #888811
+}
+skinparam enum {
+    AttributeFontColor #115577
+    BackgroundColor #E6E6FA
+    BorderColor #4682B4
+    ArrowColor #4682B4
+}
+skinparam abstract {
+    BackgroundColor #ADD8E6
+    BorderColor #00008B
+    ArrowColor #00008B
+}
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #999933
+}
+
+' Enums for clear status representation
+enum EnrollmentStatus {
+    + Waitlisted
+    + Active
+    + Completed
+}
+
+' Abstract base class for all users
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + receiveNotification(notification: Notification)
+}
+
+' Concrete Student role
+class Student extends User {
+    --
+    + browseCourseOfferings(): List<CourseOffering>
+    + enrollInCourse(courseOffering: CourseOffering)
+    + viewAnnouncements(courseOffering: CourseOffering): List<Notification>
+    + getEnrollmentStatus(courseOffering: CourseOffering): EnrollmentStatus
+}
+
+' Concrete Instructor role
+class Instructor extends User {
+    --
+    + createCourseOffering(course: Course, year: int, semester: String, maxStudents: int): CourseOffering
+    + updateCourseMaterial(courseOffering: CourseOffering, material: CourseMaterial)
+    + sendCourseAnnouncement(courseOffering: CourseOffering, message: String)
+}
+
+' Abstract base class for course templates
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    --
+    + {abstract} getInfo(): String
+}
+
+' Concrete course types
+class UndergraduateCourse extends Course {
+    ' Specific attributes or methods for undergraduate courses can be added here if needed
+}
+
+class PostgraduateCourse extends Course {
+    ' Specific attributes or methods for postgraduate courses can be added here if needed
+}
+
+' Represents a specific instance of a course being offered (e.g., "Fall 2023 - CS101")
+class CourseOffering {
+    - offeringId: String
+    - year: int
+    - semester: String
+    - maxStudents: int
+    - isReleased: boolean = false
+    --
+    + releaseOffering()
+    + addMaterial(material: CourseMaterial)
+    + removeMaterial(material: CourseMaterial)
+    + getMaterials(): List<CourseMaterial>
+}
+
+' Represents learning materials associated with a CourseOffering
+class CourseMaterial {
+    - materialId: String
+    - title: String
+    - content: String
+    - type: String ' e.g., "Lecture Notes", "Assignment", "Video"
+    --
+    + viewContent(): String
+}
+
+' Association class to track student enrollment in a CourseOffering
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Represents a notification message sent to a user
+class Notification {
+    - notificationId: String
+    - message: String
+    - timestamp: Date
+    - recipientId: String ' Foreign key referencing User.userId
+    --
+    + getMessage(): String
+}
+
+' Service responsible for sending notifications
+class NotificationService {
+    --
+    + sendNotification(notification: Notification)
+}
+
+' Manager class to centralize course-related operations and enforce business rules (e.g., authorization)
+class CourseManager {
+    - courseOfferings: List<CourseOffering>
+    --
+    + createOffering(instructor: Instructor, course: Course, year: int, semester: String, maxStudents: int): CourseOffering
+    + updateOffering(instructor: Instructor, offering: CourseOffering, updates: Map<String, Object>)
+    + getCourseOfferingById(offeringId: String): CourseOffering
+    + getAvailableCourseOfferings(): List<CourseOffering>
+    - authorizeInstructorAction(instructor: Instructor): boolean
+}
+
+' --- Relationships ---
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Aggregations / Compositions (strong ownership)
+CourseManager "1" o-- "0..*" CourseOffering : manages >
+CourseOffering "1" o-- "0..*" CourseMaterial : contains >
+NotificationService "1" o-- "0..*" Notification : sends >
+
+' Associations
+Instructor "1" -- "0..*" CourseOffering : teaches >
+' An Instructor teaches multiple course offerings. An offering is taught by one instructor.
+
+CourseOffering "1" -- "1" Course : basedOn >
+' A CourseOffering is an instance based on a single Course template.
+
+' Association Class: Enrollment
+Student "1" -- "0..*" Enrollment
+Enrollment "1" -- "1" Student : forStudent >
+' An enrollment record is for exactly one student.
+
+CourseOffering "1" -- "0..*" Enrollment
+Enrollment "1" -- "1" CourseOffering : inOffering >
+' An enrollment record is for exactly one course offering.
+
+Notification "0..*" --> "1" User : toRecipient >
+' A notification is directed to a single user (unidirectional, Notification knows its recipient).
+
+' Dependencies (usage relationships)
+Instructor ..> CourseManager : uses
+' Instructors use the CourseManager to perform actions like creating/updating offerings.
+
+Student ..> CourseManager : uses
+' Students use the CourseManager to browse and enroll in offerings.
+
+CourseOffering ..> NotificationService : triggers
+' Course offerings (or actions related to them, like announcements) trigger notifications via the service.
+
+' --- Explanatory Notes ---
+note "US-SYS1: Only Instructors can create or update courses.\nEnforced by CourseManager's internal authorization logic." as N1
+CourseManager .. N1
+
+note "US-SYS2: Enrollment date and status are automatically recorded\nwhen a student enrolls, managed by the Enrollment class." as N2
+Enrollment .. N2
+
+note "US-SYS3: Notifications are delivered to recipients\nthrough the NotificationService." as N3
+NotificationService .. N3
+
+@enduml
+```

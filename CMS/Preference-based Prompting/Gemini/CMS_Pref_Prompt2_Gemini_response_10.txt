@@ -1,0 +1,185 @@
+```plantuml
+@startuml
+' Set a consistent style for the diagram
+skinparam class {
+    BorderColor #2F4F4F
+    BackgroundColor White
+    ArrowColor #2F4F4F
+    FontColor #2F4F4F
+}
+skinparam enum {
+    BorderColor #6A5ACD
+    BackgroundColor #E6E6FA
+    FontColor #2F4F4F
+}
+skinparam abstract {
+    BackgroundColor #F0F8FF
+}
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #DAA520
+}
+
+' --- Classes ---
+
+' Abstract User class to define common properties and behaviors for all users
+abstract class User {
+    - id : String
+    - name : String
+    - email : String
+    + {abstract} getInfo() : String
+}
+
+' Student class specific to student roles and actions
+class Student {
+    + browseCourses()
+    + enrollInCourse(course : Course) : Enrollment
+    + viewAnnouncements()
+    + trackEnrollmentStatus()
+    + accessCourseResources(course : Course)
+}
+
+' Instructor class specific to instructor roles and actions
+class Instructor {
+    + createCourse(title : String, description : String, category : CourseCategory) : Course
+    + updateCourseContent(course : Course, resource : Resource)
+    + removeCourseContent(course : Course, resource : Resource)
+    + sendNotification(message : String, type : NotificationType, recipients : List<User>)
+}
+
+' Abstract Course class to define common course properties and behaviors
+abstract class Course {
+    - id : String
+    - title : String
+    - description : String
+    # resources : List<Resource> ' Protected to allow subclasses to manage resources if needed
+    + {abstract} getInfo() : String
+    + getResources() : List<Resource>
+    + addResource(resource : Resource)
+    + removeResource(resource : Resource)
+    + publishAnnouncement(message : String) ' Triggers notification for enrolled students
+}
+
+' Concrete Course types
+class UndergraduateCourse extends Course {
+    + getInfo() : String
+}
+
+class PostgraduateCourse extends Course {
+    + getInfo() : String
+}
+
+' Enrollment class as an association class to capture details of a student's enrollment in a course
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + updateStatus(newStatus : EnrollmentStatus)
+    + getStatus() : EnrollmentStatus
+    + getEnrollmentDate() : Date
+}
+
+' Resource class to represent course materials
+class Resource {
+    - id : String
+    - title : String
+    - url : String
+    - type : ResourceType
+    + getTitle() : String
+    + getUrl() : String
+    + getType() : ResourceType
+}
+
+' Notification class to encapsulate notification data
+class Notification {
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    + getMessage() : String
+    + getTimestamp() : Date
+    + getType() : NotificationType
+}
+
+' NotificationService class to handle the sending and delivery of notifications
+class NotificationService {
+    + sendNotification(message : String, type : NotificationType, recipients : List<User>)
+    - deliver(notification : Notification, recipient : User) ' Private helper method
+}
+
+' --- Enums ---
+
+' Enum for the status of an enrollment
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Enum for different types of course resources
+enum ResourceType {
+    Document
+    Video
+    Link
+    Quiz
+    Assignment
+}
+
+' Enum for different types of notifications
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    CourseUpdate
+    Submission
+}
+
+' Enum for course categories, used during course creation
+enum CourseCategory {
+    Undergraduate
+    Postgraduate
+}
+
+' --- Relationships ---
+
+' Generalization: Student and Instructor are types of Users
+User <|-- Student
+User <|-- Instructor
+
+' Generalization: UndergraduateCourse and PostgraduateCourse are types of Courses
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association Class: Enrollment links Student and Course with specific attributes
+(Student, Course) .. Enrollment
+Student "1" -- "0..*" Enrollment : enrollsIn
+Course "1" -- "0..*" Enrollment : hasEnrollment
+
+' Instructor publishes/manages Courses (unidirectional association)
+Instructor "1" --> "0..*" Course : publishes >
+
+' Course contains Resources (composition, as resources are part of a course's content)
+Course "1" *-- "0..*" Resource : contains
+
+' NotificationService creates and manages Notifications (composition)
+NotificationService "1" *-- "0..*" Notification : creates
+
+' Instructor uses NotificationService to send notifications (dependency)
+Instructor ..> NotificationService : uses
+
+' Course uses NotificationService to publish announcements (dependency)
+Course ..> NotificationService : uses
+
+' Enrollment uses EnrollmentStatus
+Enrollment --> EnrollmentStatus
+
+' Resource uses ResourceType
+Resource --> ResourceType
+
+' Notification uses NotificationType
+Notification --> NotificationType
+
+' --- Notes for clarity ---
+note left of Student : Students can only access course resources; they cannot modify them.
+note right of Instructor : Instructors are exclusively authorized to create,\nupdate, and manage courses and their content.
+note top of Enrollment : This class captures specific details (date, status)\nfor each student-course relationship.
+note top of NotificationService : This service centralizes the logic for\nsending all system notifications to users.
+@enduml
+```

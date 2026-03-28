@@ -1,0 +1,144 @@
+```plantuml
+@startuml
+
+!define LIGHTBLUE #ADD8E6
+!define LIGHTGREEN #90EE90
+!define LIGHTGREY #D3D3D3
+
+' Apply consistent styling for improved readability
+skinparam class {
+    BackgroundColor LIGHTBLUE
+    ArrowColor #222222
+    BorderColor #222222
+}
+skinparam abstract {
+    BackgroundColor LIGHTGREEN
+    ArrowColor #222222
+    BorderColor #222222
+}
+skinparam enum {
+    BackgroundColor LIGHTGREY
+    ArrowColor #222222
+    BorderColor #222222
+}
+
+' Define abstract User class for common attributes and behaviors
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + getUserId(): String
+    + getName(): String
+    + getEmail(): String
+}
+
+' Student class inherits from User and defines student-specific behaviors
+class Student {
+    --
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewAnnouncements(course: Course): List<String>
+    + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+}
+
+' Instructor class inherits from User and defines instructor-specific behaviors
+class Instructor {
+    --
+    + createCourse(title: String, description: String, type: CourseType): Course
+    + updateCourseMaterial(course: Course, material: String)
+    + publishCourse(course: Course)
+    + sendNotification(message: String, course: Course)
+}
+
+' Abstract Course class for common course attributes and behaviors
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    - materials: List<String>
+    - announcements: List<String>
+    --
+    + {abstract} getInfo(): String
+    + getCourseId(): String
+    + getTitle(): String
+    + getDescription(): String
+    + getMaterials(): List<String>
+    + getAnnouncements(): List<String>
+    + addMaterial(material: String) ' Public to allow Instructor to update
+    + addAnnouncement(announcement: String) ' Public to allow Instructor to publish
+}
+
+' Concrete course types inheriting from Course
+class UndergraduateCourse {
+    --
+    + getInfo(): String
+}
+
+class PostgraduateCourse {
+    --
+    + getInfo(): String
+}
+
+' Enum for explicit enrollment statuses
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Association class to capture details of the relationship between Student and Course
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Dedicated service for handling notifications, promoting loose coupling
+class NotificationService {
+    --
+    + sendNotification(message: String, recipient: User)
+    + sendBulkNotification(message: String, recipients: List<User>)
+}
+
+' --- Relationships ---
+
+' Inheritance relationships
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association class for Enrollment
+Student "1" -- "0..*" Enrollment : registersFor >
+Enrollment "0..*" -- "1" Course : for >
+
+' Instructor manages (creates/updates/publishes) courses (unidirectional)
+Instructor "1" --> "0..*" Course : manages >
+
+' Instructor uses the NotificationService to send notifications (unidirectional dependency)
+Instructor --> NotificationService : uses >
+
+' NotificationService sends notifications to users (unidirectional)
+NotificationService "1" --> "0..*" User : sendsTo >
+
+' Student views courses (unidirectional association)
+Student "0..*" --> "0..*" Course : views >
+
+' --- Explanatory Notes ---
+note "CourseType (e.g., Undergraduate, Postgraduate)\ncan be an enum or a simple string parameter\nin `createCourse` for flexibility." as CourseTypeNote
+CourseTypeNote .down. Instructor
+
+note "The `enrollInCourse` method on Student would typically\ndelegate to a CourseManager or EnrollmentManager\nto create and persist the Enrollment instance,\nlinking it to the Student and Course." as EnrollmentProcessNote
+Student .down. EnrollmentProcessNote
+
+note "Instructor's `sendNotification(message, course)` method\nwould retrieve all students enrolled in the given course\nand then use `NotificationService.sendBulkNotification`\nto deliver the message to them." as InstructorNotificationNote
+Instructor .right. InstructorNotificationNote
+
+@enduml
+```

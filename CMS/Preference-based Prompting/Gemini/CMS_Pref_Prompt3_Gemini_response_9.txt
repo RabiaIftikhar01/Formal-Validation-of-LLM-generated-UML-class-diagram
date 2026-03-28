@@ -1,0 +1,125 @@
+```plantuml
+@startuml
+!theme plain
+
+' Abstract base class for all users in the learning platform.
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    + {abstract} getInfo() : String
+}
+
+' Represents a student user with specific learning functionalities.
+class Student {
+    + browseCourses() : List<Course>
+    + enroll(course: Course) : Enrollment
+    + viewAnnouncements(course: Course) : List<Notification>
+    + trackEnrollmentStatus(course: Course) : EnrollmentStatus
+}
+
+' Represents an instructor user with course management responsibilities.
+class Instructor {
+    + createCourseOffering(title: String, description: String, courseType: String) : Course
+    + updateCourseMaterial(course: Course, material: String)
+    + sendCourseNotification(course: Course, message: String)
+}
+
+' Abstract base class for all course types offered.
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    - instructor : Instructor ' The instructor assigned to teach this course'
+    + {abstract} getInfo() : String
+    + getCourseMaterial() : String
+}
+
+' Specific course type for undergraduate programs.
+class UndergraduateCourse {
+    + getCredits() : int ' Example of specific behavior for undergraduate courses'
+}
+
+' Specific course type for postgraduate programs.
+class PostgraduateCourse {
+    + getResearchFocus() : String ' Example of specific behavior for postgraduate courses'
+}
+
+' Represents a student's enrollment in a specific course.
+' This is an association class to hold attributes specific to the enrollment relationship.
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Enumeration for the possible statuses of a course enrollment.
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Represents a notification message sent within the platform.
+class Notification {
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    - recipient : User ' The user who receives this notification'
+    - associatedCourse : Course ' Optional: for course-specific notifications'
+    + display() : String
+}
+
+' Enumeration for different categories of notifications.
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    SubmissionConfirmation
+}
+
+' Service responsible for creating, sending, and retrieving notifications.
+class NotificationService {
+    + sendNotification(message: String, recipient: User, type: NotificationType, course: Course = null)
+    + getNotifications(user: User) : List<Notification>
+}
+
+
+'--- Relationships ---'
+
+' User Hierarchy: Student and Instructor are types of Users. '
+User <|-- Student
+User <|-- Instructor
+
+' Course Hierarchy: Undergraduate and Postgraduate are types of Courses. '
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Instructor teaches multiple Courses. Course knows its assigned Instructor. '
+Instructor "1" --> "0..*" Course : teaches >
+' Note: The Course class holds a reference to its instructor via the -instructor attribute.
+' This unidirectional association from Instructor to Course indicates that an Instructor
+' creates and updates courses, and a Course is taught by one Instructor. '
+
+' Enrollment is an association class between Student and Course. '
+' A Student can have multiple Enrollments. A Course can have multiple Enrollments. '
+Student "1" -- "0..*" Enrollment
+Course "1" -- "0..*" Enrollment
+
+' Each Enrollment instance links exactly one Student to exactly one Course. '
+Enrollment --> "1" Student : for
+Enrollment --> "1" Course : in
+
+' Notification relationships: '
+' A Notification is received by one User. '
+Notification "0..*" --> "1" User : receives
+' A Notification can optionally be related to a specific Course. '
+Notification "0..*" --> "0..1" Course : relatesTo
+
+' NotificationService manages and sends Notifications. '
+NotificationService "1" --> "0..*" Notification : manages >
+
+' A Course can trigger the NotificationService to send alerts. '
+Course "1" --> "1" NotificationService : triggers >
+
+@enduml
+```

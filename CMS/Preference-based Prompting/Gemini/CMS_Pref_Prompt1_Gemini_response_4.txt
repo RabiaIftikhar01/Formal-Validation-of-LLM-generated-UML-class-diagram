@@ -1,0 +1,149 @@
+```plantuml
+@startuml
+' Styling for better readability, adhering to professional standards
+skinparam class {
+    BackgroundColor White
+    BorderColor #2A497B
+    ArrowColor #2A497B
+    AttributeFontColor #2A497B
+    FontColor #2A497B
+    StereotypeFontColor #2A497B
+}
+hide empty members
+
+' Define macros for clarity and consistency
+!define ENTITY_CLASS class
+!define ABSTRACT_CLASS abstract class
+
+' Enumerations to represent distinct states and types, improving readability and maintainability
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+}
+
+enum CourseType {
+    Undergraduate
+    Postgraduate
+}
+
+' Abstract base class for all users in the system, encapsulating common attributes and behaviors.
+ABSTRACT_CLASS User {
+    - userId : String
+    - name : String
+    - email : String
+    --
+    + {abstract} getInfo() : String
+    + receiveNotification(notification : Notification)
+}
+
+' Represents a student user, inheriting core user functionalities and adding student-specific behaviors.
+ENTITY_CLASS Student {
+    --
+    + browseCourses()
+    + enrollInCourse(course : CourseOffering)
+    + viewAnnouncements()
+    + trackEnrollmentStatus()
+    + viewCourseContent(course : CourseOffering)
+}
+
+' Represents an instructor user, inheriting core user functionalities and adding instructor-specific behaviors
+' such as course creation and material management.
+ENTITY_CLASS Instructor {
+    --
+    + createCourseOffering(title : String, description : String, type : CourseType) : CourseOffering
+    + publishCourseOffering(course : CourseOffering)
+    + updateCourseMaterial(course : CourseOffering, material : CourseMaterial)
+    + sendNotification(message : String, type : NotificationType, recipients : List<User>)
+}
+
+' Represents a specific offering of a course, which students can enroll in and instructors manage.
+' The 'type' attribute handles variations like Undergraduate or Postgraduate without complex inheritance.
+ENTITY_CLASS CourseOffering {
+    - courseOfferingId : String
+    - title : String
+    - description : String
+    - type : CourseType
+    - isPublished : boolean = false
+    --
+    + viewContent()
+    + updateContent(material : CourseMaterial)
+    + getCourseMaterials() : List<CourseMaterial>
+}
+
+' Represents individual learning materials associated with a CourseOffering.
+ENTITY_CLASS CourseMaterial {
+    - materialId : String
+    - title : String
+    - content : String
+    - uploadDate : Date
+    --
+    + view() : String
+}
+
+' Represents a notification message sent to a user, including its content, timestamp, and type.
+ENTITY_CLASS Notification {
+    - notificationId : String
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    - isRead : boolean = false
+    --
+    + markAsRead()
+}
+
+' A dedicated service for handling the sending of notifications, promoting loose coupling.
+ENTITY_CLASS NotificationService {
+    --
+    + sendNotification(message : String, type : NotificationType, recipient : User)
+    + sendBulkNotification(message : String, type : NotificationType, recipients : List<User>)
+}
+
+' --- Relationships ---
+
+' Inheritance: Student and Instructor specialize the abstract User class.
+User <|-- Student
+User <|-- Instructor
+
+' Association: An Instructor creates and manages multiple CourseOfferings.
+Instructor "1" -- "0..*" CourseOffering : creates/manages >
+
+' Composition: A CourseOffering contains multiple CourseMaterials.
+CourseOffering "1" *-- "0..*" CourseMaterial : contains >
+
+' Association Class: Enrollment captures the specific details of a student's enrollment in a course offering,
+' including date and status. This avoids cluttering Student or CourseOffering with enrollment-specific attributes.
+(Student, CourseOffering) .. Enrollment
+ENTITY_CLASS Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    --
+    + updateStatus(newStatus : EnrollmentStatus)
+}
+Student "1" -- "0..*" Enrollment : enrollsIn >
+CourseOffering "1" -- "0..*" Enrollment : hasEnrollment >
+
+' Association: A User can receive multiple Notifications.
+User "1" o-- "0..*" Notification : receives >
+
+' Association: NotificationService creates and sends Notifications.
+NotificationService "1" --> "0..*" Notification : creates/sends >
+
+' Dependencies: Indicate that Instructor and CourseOffering use the NotificationService.
+' This keeps the core logic of these classes separate from notification delivery.
+Instructor ..> NotificationService : triggers
+CourseOffering ..> NotificationService : triggers
+
+' Dependencies: Indicate that classes use their respective Enums.
+CourseOffering ..> CourseType
+Enrollment ..> EnrollmentStatus
+Notification ..> NotificationType
+
+@enduml
+```

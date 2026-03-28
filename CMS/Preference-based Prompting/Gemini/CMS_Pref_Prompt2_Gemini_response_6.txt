@@ -1,0 +1,126 @@
+```plantuml
+@startuml
+hide empty members
+
+' Classes and their attributes/operations based on Domain Model and refined responsibilities
+
+abstract class User {
+    - id : String
+    - name : String
+    - email : String
+    + getInfo() : String
+}
+
+class Student {
+    + browseCourses()
+    + enrollInCourse(course : Course) : Enrollment
+    + viewAnnouncements(course : Course) : List<String>
+    + trackEnrollmentStatus(enrollment : Enrollment) : EnrollmentStatus
+    + accessCourseResources(course : Course) : String
+}
+
+class Instructor {
+    + createCourse(title : String, description : String, type : CourseType) : Course
+    + updateCourseContent(course : Course, newContent : String)
+    + publishCourseAnnouncement(course : Course, message : String)
+    + sendDirectNotification(message : String, recipient : User)
+}
+
+abstract class Course {
+    - id : String
+    - title : String
+    - description : String
+    - content : String
+    - announcements : List<String>
+    + getInfo() : String
+    + getContent() : String
+    + getAnnouncements() : List<String>
+    + addAnnouncement(message : String)
+}
+
+class Undergraduate extends Course {
+    + Undergraduate(id : String, title : String, description : String)
+}
+
+class Postgraduate extends Course {
+    + Postgraduate(id : String, title : String, description : String)
+}
+
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + setStatus(newStatus : EnrollmentStatus)
+}
+
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum CourseType {
+    Undergraduate
+    Postgraduate
+}
+
+class Notification {
+    - message : String
+    - timestamp : Date
+    - recipient : User
+    + Notification(message : String, recipient : User)
+    + getMessage() : String
+    + getTimestamp() : Date
+    + getRecipient() : User
+}
+
+class NotificationService {
+    + createAndSend(message : String, recipient : User)
+    + createAndSendToMultiple(message : String, recipients : List<User>)
+}
+
+' Relationships
+
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- Undergraduate
+Course <|-- Postgraduate
+
+' Association class for Enrollment
+' An Enrollment instance links a Student to a Course,
+' holding specific details about that relationship.
+Student "1" -- "0..*" Enrollment
+Course "1" -- "0..*" Enrollment
+Enrollment .. (Student, Course) : manages
+
+' Instructor publishes and manages Courses.
+' A Course is published by exactly one Instructor.
+Instructor "1" --> "0..*" Course : publishes / manages
+
+' NotificationService interactions
+' Both Instructor and Course use the NotificationService to send notifications.
+Instructor ..> NotificationService : uses
+Course ..> NotificationService : uses
+
+' NotificationService creates and manages Notification objects internally.
+NotificationService "1" *-- "0..*" Notification : createsAndManages
+
+' Each Notification object is intended for a specific User.
+Notification "1" --> "1" User : forRecipient
+
+' Student accesses Course resources (e.g., content, announcements).
+' This is a dependency as it's an interaction, not a structural relationship.
+Student ..> Course : accessesResources
+
+' Add notes for clarity and additional information (Design Practice 25)
+note left of Student : Students can access course resources\n(content, announcements) but are restricted\nfrom modifying them.
+note right of Instructor : Instructors have exclusive authority to\ncreate new course offerings, publish announcements,\nand manage course content updates.
+note bottom of Enrollment : Captures the date of enrollment and its status\n(e.g., active, completed, waitlisted) for a\nstudent's participation in a specific course.
+note right of NotificationService : Responsible for the creation and dispatching\nof Notification objects to single or multiple recipients,\nensuring decoupled notification logic.
+note right of Notification : Represents a single, immutable notification\nmessage with its timestamp and intended recipient.
+note top of CourseType : Used by Instructor's createCourse method\nto specify the type of course to be created.
+
+@enduml
+```

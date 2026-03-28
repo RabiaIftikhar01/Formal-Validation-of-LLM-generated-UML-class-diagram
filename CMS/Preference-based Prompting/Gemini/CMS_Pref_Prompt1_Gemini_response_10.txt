@@ -1,0 +1,143 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' --- Enums ---
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+enum NotificationType {
+  Announcement
+  Deadline
+  Submission
+}
+
+' --- User Hierarchy ---
+abstract class User {
+  -userId: String
+  -name: String
+  -email: String
+  --
+  + {abstract} getInfo(): String
+  + receiveNotification(notification: Notification)
+}
+
+class Student {
+  --
+  + viewCourseContent(course: Course)
+  + enrollInCourse(course: Course)
+  + trackEnrollmentStatus()
+}
+
+class Instructor {
+  --
+  + createCourse(title: String, description: String, type: String): Course
+  + updateCourseMaterial(course: Course, material: String)
+  + publishCourse(course: Course)
+  + sendNotification(message: String, course: Course, type: NotificationType)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' --- Course Hierarchy ---
+abstract class Course {
+  -courseId: String
+  -title: String
+  -description: String
+  -materials: List<String>
+  -isPublished: boolean
+  -managingInstructor: Instructor
+  --
+  + {abstract} getInfo(): String
+  + viewContent(): List<String>
+  + addMaterial(material: String)
+  + removeMaterial(material: String)
+  + publish()
+  + unpublish()
+  + getManagingInstructor(): Instructor
+}
+
+class UndergraduateCourse {
+  --
+  + getInfo(): String
+}
+
+class PostgraduateCourse {
+  --
+  + getInfo(): String
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' --- Enrollment (Association Class) ---
+class Enrollment {
+  -enrollmentDate: Date
+  -status: EnrollmentStatus
+  --
+  + updateStatus(newStatus: EnrollmentStatus)
+  + getStatus(): EnrollmentStatus
+  + getEnrollmentDate(): Date
+}
+
+' Association between Student, Course, and Enrollment
+Student "1" o-- "0..*" Enrollment : enrolls >
+Course "1" o-- "0..*" Enrollment : has >
+
+' Internal links for the association class
+Enrollment "1" -- "1" Student
+Enrollment "1" -- "1" Course
+
+' --- Notification System ---
+class Notification {
+  -message: String
+  -timestamp: Date
+  -type: NotificationType
+  --
+  + getMessage(): String
+  + getTimestamp(): Date
+  + getType(): NotificationType
+}
+
+class NotificationService {
+  --
+  + sendNotification(message: String, recipient: User, type: NotificationType)
+  + sendCourseNotification(message: String, course: Course, type: NotificationType)
+}
+
+' --- Relationships ---
+
+' Instructor manages Courses (Composition: a course is created by an instructor and is strongly associated)
+' Changed from composition to aggregation to allow for scenarios like instructor leaving, course remaining.
+Instructor "1" o-- "0..*" Course : manages >
+
+' Instructor uses NotificationService to send notifications
+Instructor --> NotificationService : uses >
+
+' NotificationService sends notifications to Users
+NotificationService --> User : notifies >
+
+' Course can trigger notifications (e.g., automated deadlines)
+Course --> NotificationService : triggers >
+
+' Enums relationships
+Enrollment --> EnrollmentStatus
+Notification --> NotificationType
+
+' --- Notes for clarity ---
+note right of Course::addMaterial
+  Authorization check required:
+  Only managingInstructor can update
+end note
+
+note right of Course::publish
+  Authorization check required:
+  Only managingInstructor can publish
+end note
+
+@enduml
+```

@@ -1,0 +1,148 @@
+@startuml
+' This class diagram models the core components of the academic learning platform,
+' adhering to good design practices for extensibility and maintainability.
+
+' Design Decisions and Rationale:
+' 1.  **User Hierarchy:** An abstract `User` class provides common attributes (ID, name, email) and behavior (`getInfo`, `receiveNotification`). `Student` and `Instructor` inherit from `User`, allowing for specialized roles while maintaining a common base. This follows the "prefer composition over inheritance" principle where appropriate, but here, it's a clear "is-a" relationship.
+' 2.  **Course Hierarchy:** An abstract `Course` class defines common course attributes and methods (`getInfo`, `addResource`, `removeResource`, `getResources`). `Undergraduate` and `Postgraduate` courses extend `Course` for potential future specialization, keeping the core `Course` class clean.
+' 3.  **Enrollment as Association Class:** The relationship between `Student` and `Course` is modeled as an `Enrollment` association class. This correctly captures the specific attributes of the relationship (date, status) without cluttering `Student` or `Course` with enrollment details. It also allows for clear management of enrollment lifecycle.
+' 4.  **Notification System:** A dedicated `Notification` class encapsulates notification details (message, timestamp, type). A `NotificationService` handles the actual sending mechanism, decoupling the act of notification from the business logic of `Instructor` or `Course`. This promotes loose coupling and reusability of the notification mechanism. `NotificationType` enum provides clear categorization.
+' 5.  **Course Resources:** A `Resource` class is introduced to represent learning materials, allowing `Course` to manage a collection of resources. This makes `Course` responsible for its content, and `Student` can access these resources via the `Course`.
+' 6.  **Responsibilities:** Operations are carefully placed:
+'     *   `Student` has operations for `browseCourses`, `enroll`, `viewCourseMaterials`, `trackEnrollmentStatus`.
+'     *   `Instructor` has operations for `createCourse`, `updateCourseContent`, `sendCourseNotification`.
+'     *   `NotificationService` handles `send` and `broadcastToCourse`.
+'     *   `Enrollment` manages its own `status` updates.
+' 7.  **Relationships:** Multiplicities are clearly defined. Unidirectional associations are used where appropriate (e.g., `Instructor` creates `Notification`, `NotificationService` sends `Notification`). Role names are added for clarity (e.g., `teaches`, `enrollsIn`).
+' 8.  **Simplicity & Readability:** The diagram is kept concise, focusing on essential entities and their interactions. Naming conventions are consistent. Explanatory notes are added for complex or critical sections.
+
+' Abstract Base Classes
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    + {abstract} getInfo(): String
+    + receiveNotification(notification: Notification)
+}
+
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    + {abstract} getInfo(): String
+    + addResource(resource: Resource)
+    + removeResource(resource: Resource)
+    + getResources(): List<Resource>
+}
+
+' Concrete User Roles
+class Student {
+    + browseCourses(): List<Course>
+    + enroll(course: Course)
+    + viewCourseMaterials(course: Course)
+    + trackEnrollmentStatus(enrollment: Enrollment)
+}
+
+class Instructor {
+    + createCourse(title: String, description: String, category: CourseCategory): Course
+    + updateCourseContent(course: Course, newContent: String)
+    + sendCourseNotification(notification: Notification, course: Course)
+}
+
+' Course Categories
+class Undergraduate extends Course
+class Postgraduate extends Course
+
+' Enumeration for Enrollment Status
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Enrollment (Association Class)
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+    + getEnrollmentDetails(): String
+}
+
+' Notification System Components
+class Notification {
+    - message: String
+    - timestamp: Date
+    - type: NotificationType
+    + getDetails(): String
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+    CourseUpdate
+}
+
+class NotificationService {
+    + send(notification: Notification, recipient: User)
+    + broadcastToCourse(notification: Notification, course: Course)
+}
+
+' Course Resources
+class Resource {
+    - resourceId: String
+    - title: String
+    - type: String ' e.g., PDF, Video, Link
+    - url: String
+    + getDetails(): String
+}
+
+' Relationships
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+Course <|-- Undergraduate
+Course <|-- Postgraduate
+
+' Associations
+
+' Student enrolls in Course, managed by Enrollment association class
+Student "1" -- "0..*" Enrollment : enrollsIn >
+Course "1" -- "0..*" Enrollment : hasEnrollment >
+
+' Instructor manages/teaches Courses
+Instructor "1" -- "0..*" Course : teaches >
+
+' Course contains Resources
+Course "1" -- "0..*" Resource : contains >
+
+' Notification System Interactions
+' Instructor creates notifications (e.g., for courses)
+Instructor "1" --> "0..*" Notification : creates >
+
+' Users (Student/Instructor) receive notifications
+User "1" <-- "0..*" Notification : receives <
+
+' NotificationService sends notifications
+NotificationService "1" --> "1" Notification : sends >
+
+' NotificationService interacts with Course to broadcast
+NotificationService ..> Course : manages notifications for >
+
+' Course can generate notifications (e.g., new assignment posted)
+Course "1" --> "0..*" Notification : generates >
+
+
+' Notes for clarity
+note "Enrollment captures specific details\nof a Student's participation in a Course." as N1
+Enrollment .. N1
+
+note "NotificationService handles the delivery\nof notifications to various recipients,\ndecoupling sending logic from business entities." as N2
+NotificationService .. N2
+
+note "Course contains various learning resources\nthat students can access and instructors manage." as N3
+Course .. N3
+Resource .. N3
+
+@enduml

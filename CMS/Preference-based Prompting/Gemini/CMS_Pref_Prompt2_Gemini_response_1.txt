@@ -1,0 +1,176 @@
+```plantuml
+@startuml
+' Professional Class Diagram for Learning Platform
+
+' Design Practices Applied:
+' - Simplicity and clarity achieved by centralizing complex logic in LearningPlatform.
+' - Consistent naming convention: PascalCase for classes/enums, camelCase for attributes/methods.
+' - Attributes and operations are assigned to appropriate classes, focusing on single responsibility.
+' - Access methods (getters) are provided for attributes that need to be viewed externally.
+' - Operations categorized (e.g., public for core business logic, private for helpers if needed).
+' - Reduced relationships, favoring unidirectional where logical, and using aggregation/composition for management.
+' - Multiplicity is clearly defined for all associations, reflecting business rules.
+' - Association class (Enrollment) is used to capture attributes of a many-to-many relationship.
+' - Generalization (inheritance) is used for User and Course types, avoiding deep hierarchies.
+' - Loose coupling is maintained by having a central orchestrator (LearningPlatform) handle interactions.
+
+' Enums for status and type
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    SubmissionConfirmation
+    General
+}
+
+' Abstract base class for all users
+abstract class User {
+    - id: String
+    - name: String
+    - email: String
+    --
+    + getID(): String
+    + getName(): String
+    + getEmail(): String
+    + {abstract} getRoleSpecificInfo(): String ' Provides role-specific details
+}
+
+' Concrete user roles
+class Student extends User {
+    + getRoleSpecificInfo(): String ' Returns student-specific details
+    ' Student interactions are mediated by LearningPlatform
+}
+
+class Instructor extends User {
+    + getRoleSpecificInfo(): String ' Returns instructor-specific details
+    ' Instructor interactions are mediated by LearningPlatform
+}
+
+' Abstract base class for all courses
+abstract class Course {
+    - id: String
+    - title: String
+    - description: String
+    # materials: List<CourseMaterial>
+    --
+    + getID(): String
+    + getTitle(): String
+    + getDescription(): String
+    + getMaterials(): List<CourseMaterial>
+    + addMaterial(material: CourseMaterial)
+    + removeMaterial(material: CourseMaterial)
+    + {abstract} getCategory(): String ' e.g., "Undergraduate", "Postgraduate"
+}
+
+' Concrete course categories
+class UndergraduateCourse extends Course {
+    + getCategory(): String
+}
+
+class PostgraduateCourse extends Course {
+    + getCategory(): String
+}
+
+' Represents course content like lecture notes, assignments, readings
+class CourseMaterial {
+    - id: String
+    - title: String
+    - type: String ' e.g., "Lecture Notes", "Assignment", "Reading"
+    - contentUrl: String
+    --
+    + getID(): String
+    + getTitle(): String
+    + getType(): String
+    + getContentUrl(): String
+}
+
+' Association class for enrollment, capturing specific details of a student's enrollment in a course
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Represents a notification to be sent
+class Notification {
+    - id: String
+    - message: String
+    - timestamp: Date
+    - type: NotificationType
+    --
+    + getID(): String
+    + getMessage(): String
+    + getTimestamp(): Date
+    + getType(): NotificationType
+}
+
+' Manages the sending of notifications to users
+class NotificationManager {
+    --
+    + sendNotification(notification: Notification, recipient: User)
+    + sendBatchNotification(notification: Notification, recipients: List<User>)
+}
+
+' Central class representing the learning platform, orchestrating interactions and business logic
+' Acts as a facade/service layer for user actions and system responsibilities.
+class LearningPlatform {
+    - courses: List<Course>
+    - users: List<User>
+    - enrollments: List<Enrollment>
+    - notificationManager: NotificationManager
+    --
+    + createCourse(instructor: Instructor, title: String, description: String, category: String): Course
+    + updateCourseContent(instructor: Instructor, course: Course, material: CourseMaterial)
+    + enrollStudent(student: Student, course: Course): Enrollment
+    + getAvailableCourses(): List<Course>
+    + getStudentEnrollments(student: Student): List<Enrollment>
+    + getCourseMaterials(course: Course): List<CourseMaterial>
+    + sendCourseNotification(instructor: Instructor, course: Course, message: String, type: NotificationType)
+    + sendUserSpecificNotification(sender: User, recipient: User, message: String, type: NotificationType)
+    - authorizeInstructorAction(instructor: Instructor): Boolean ' Helper for authorization
+}
+
+' Relationships
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Composition/Aggregation
+Course "1" *-- "0..*" CourseMaterial : contains > ' A Course contains multiple CourseMaterials.
+
+' Association Class for Enrollment
+Student "1" -- "0..*" Enrollment
+Course "1" -- "0..*" Enrollment
+Enrollment "1" -- "1" Student : for
+Enrollment "1" -- "1" Course : in
+
+' Other Associations
+Instructor "1" -- "0..*" Course : teaches > ' An Instructor teaches multiple Courses. A Course is taught by one Instructor.
+
+Notification "1" --> "1" User : targets > ' A Notification targets a specific User.
+NotificationManager "1" *-- "0..*" Notification ' NotificationManager manages (sends) Notifications.
+
+' LearningPlatform orchestrates and manages core entities
+LearningPlatform "1" *-- "0..*" Course : manages
+LearningPlatform "1" *-- "0..*" User : manages
+LearningPlatform "1" *-- "0..*" Enrollment : manages
+LearningPlatform "1" *-- "1" NotificationManager : uses
+
+' Note: Student and Instructor interact with the LearningPlatform
+' for all their actions (e.g., browse courses, enroll, create course, send notifications).
+' This interaction is implied by the operations on LearningPlatform that take
+' Student/Instructor objects as parameters, promoting loose coupling.
+@enduml
+```

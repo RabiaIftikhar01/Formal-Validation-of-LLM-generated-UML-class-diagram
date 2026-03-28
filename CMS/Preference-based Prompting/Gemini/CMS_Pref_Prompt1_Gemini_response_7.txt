@@ -1,0 +1,142 @@
+```plantuml
+@startuml
+' Set styling for better readability and conformity
+skinparam class {
+    BackgroundColor White
+    ArrowColor #2A487E
+    BorderColor #2A487E
+    FontColor Black
+    StereotypeFontColor #2A487E
+}
+skinparam enum {
+    BackgroundColor #F0F8FF
+    BorderColor #2A487E
+    FontColor Black
+}
+hide empty members
+
+' Abstract base class for all users in the system
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+    + {abstract} getInfo() : String
+}
+
+' Represents a student user with specific learning functionalities
+class Student {
+    + browseCourses() : List<Course>
+    + enrollInCourse(course: Course) : Enrollment
+    + viewAnnouncements() : List<Notification>
+    + trackEnrollmentStatus(enrollmentId: String) : EnrollmentStatus
+}
+
+' Represents an instructor user with course management and communication functionalities
+class Instructor {
+    + createCourse(title: String, description: String, type: CourseType) : Course
+    + updateCourseMaterial(course: Course, newMaterial: String)
+    + publishCourse(course: Course)
+    + sendNotification(notification: Notification, recipient: User)
+}
+
+' Abstract base class for all course offerings
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    - material : String
+    - createdBy : Instructor
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+    + getMaterial() : String
+    + getCreatedBy() : Instructor
+    + {abstract} getInfo() : String
+    + updateMaterial(newMaterial: String)
+}
+
+' Specific type of course for undergraduate students
+class UndergraduateCourse extends Course {
+    + getInfo() : String
+}
+
+' Specific type of course for postgraduate students
+class PostgraduateCourse extends Course {
+    + getInfo() : String
+}
+
+' Represents a student's enrollment in a specific course, including status and date
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' Defines the possible statuses for a course enrollment
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Represents a single notification message to be sent to users
+class Notification {
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    + getMessage() : String
+    + getTimestamp() : Date
+    + getType() : NotificationType
+}
+
+' Defines categories for different types of notifications
+enum NotificationType {
+    AssignmentDeadline
+    Announcement
+    Submission
+}
+
+' Handles the delivery mechanism of notifications to various users
+class NotificationService {
+    + sendNotification(notification: Notification, recipient: User)
+}
+
+
+' Relationships between classes
+
+' User roles inheritance
+User <|-- Student
+User <|-- Instructor
+
+' Course type inheritance
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Instructor creates and manages courses
+Instructor "1" --> "0..*" Course : creates/manages >
+
+' Enrollment as an association class between Student and Course
+Student "1" -- "0..*" Enrollment : has
+Enrollment "1" -- "1" Course : for
+
+' Notification flow: Instructor uses NotificationService to send Notifications, which target Users
+Instructor ..> NotificationService : uses
+NotificationService ..> Notification : handles
+Notification "1" --> "1" User : targets >
+
+
+' Explanatory notes for complex sections or additional information
+note "Enrollment is an association class\nbetween Student and Course. It holds attributes\nspecific to the student-course relationship." as N1
+Enrollment .. N1
+
+note "CourseType (Undergraduate/Postgraduate) is modeled as\ninheritance as per domain model. If differences are\nonly data-driven, an enum attribute in Course\ncould be a simpler alternative." as N2
+UndergraduateCourse .. N2
+PostgraduateCourse .. N2
+
+@enduml
+```

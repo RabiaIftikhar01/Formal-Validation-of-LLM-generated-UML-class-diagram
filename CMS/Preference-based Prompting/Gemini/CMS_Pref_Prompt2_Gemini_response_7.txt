@@ -1,0 +1,148 @@
+```plantuml
+@startuml
+' Set a consistent style for the diagram for improved readability and adherence to standards
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 14
+skinparam class {
+    BorderColor #2F5496
+    BackgroundColor #E9F0FD
+    ArrowColor #2F5496
+    FontColor #2F5496
+}
+skinparam enum {
+    BorderColor #2F5496
+    BackgroundColor #E9F0FD
+    ArrowColor #2F5496
+    FontColor #2F5496
+}
+
+' --- Abstract Base Classes ---
+' User is an abstract base class encapsulating common attributes and behavior for all platform users.
+abstract class User {
+    - userId: String
+    - name: String
+    - email: String
+    --
+    + {abstract} getInfo(): String
+    + getName(): String
+    + getEmail(): String
+}
+
+' Course is an abstract base class for all course offerings, defining common properties.
+abstract class Course {
+    - courseId: String
+    - title: String
+    - description: String
+    - content: String ' Represents the core learning materials/resources
+    --
+    + {abstract} getInfo(): String
+    + getCourseId(): String
+    + getTitle(): String
+    + getDescription(): String
+    + getContent(): String
+    + viewContent(): String ' Allows access to course materials
+}
+
+' --- Concrete User Roles ---
+' Student represents an individual participating in courses.
+class Student {
+    ' No specific attributes beyond User, but defines student-specific behaviors.
+    --
+    + browseCourses(): List<Course>
+    + enrollInCourse(course: Course): Enrollment
+    + viewAnnouncements(): List<Notification>
+    + trackEnrollmentStatus(enrollment: Enrollment): EnrollmentStatus
+    + accessCourseResources(course: Course)
+}
+
+' Instructor represents an individual teaching and managing courses.
+class Instructor {
+    ' No specific attributes beyond User, but defines instructor-specific behaviors.
+    --
+    + createCourse(title: String, description: String, category: String): Course
+    + updateCourseContent(course: Course, newContent: String)
+    + sendNotification(message: String, recipients: List<User>)
+    + publishCourse(course: Course)
+}
+
+' --- Concrete Course Types ---
+' UndergraduateCourse is a specific type of Course.
+class UndergraduateCourse {
+    ' Could have specific attributes or methods for undergraduate courses if needed
+}
+
+' PostgraduateCourse is a specific type of Course.
+class PostgraduateCourse {
+    ' Could have specific attributes or methods for postgraduate courses if needed
+}
+
+' --- Association Class for Enrollment ---
+' Enrollment is an association class linking a Student to a Course,
+' holding attributes specific to their participation in that course.
+class Enrollment {
+    - enrollmentDate: Date
+    - status: EnrollmentStatus
+    --
+    + getEnrollmentDate(): Date
+    + getStatus(): EnrollmentStatus
+    + updateStatus(newStatus: EnrollmentStatus)
+}
+
+' EnrollmentStatus is an enumeration defining possible states of a student's enrollment.
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' --- Utility/Service Class ---
+' NotificationService is a dedicated service for sending various types of notifications.
+' It centralizes the logic for message delivery, promoting loose coupling.
+class NotificationService {
+    --
+    + sendNotification(message: String, recipient: User)
+    + sendBulkNotification(message: String, recipients: List<User>)
+}
+
+' --- Relationships ---
+
+' Inheritance Relationships
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Association Class Relationships
+' A Student registers for multiple Enrollments.
+Student "1" -- "0..*" Enrollment : registersFor >
+' A Course can have multiple Enrollments.
+Course "1" -- "0..*" Enrollment : has >
+
+' Other Associations
+' An Instructor publishes and manages multiple Courses.
+Instructor "1" -- "0..*" Course : publishes >
+
+' Dependency Relationships
+' An Instructor uses the NotificationService to send announcements and updates.
+Instructor ..> NotificationService : uses >
+' The NotificationService delivers notifications to general User objects (polymorphically to Students/Instructors).
+NotificationService ..> User : deliversTo >
+
+
+' --- Explanatory Notes ---
+note "Enrollment captures the specific details\nof a student's participation in a course,\nincluding its status and date, making it\nan ideal association class." as N1
+Enrollment .. N1
+
+note "Only Instructors are authorized to create or\nupdate course content. Students are restricted\nto viewing course resources." as N2
+Instructor .. N2
+Student .. N2
+
+note "The NotificationService centralizes the logic\nfor sending messages, ensuring consistent\ncommunication across the platform and promoting\nloose coupling between components." as N3
+NotificationService .. N3
+
+' --- Layout Hints (Optional, for better visual organization) ---
+Instructor -[hidden]right- Student
+UndergraduateCourse -[hidden]down- PostgraduateCourse
+@enduml
+```

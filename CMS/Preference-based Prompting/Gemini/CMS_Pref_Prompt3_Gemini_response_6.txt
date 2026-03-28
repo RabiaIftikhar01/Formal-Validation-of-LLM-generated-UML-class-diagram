@@ -1,0 +1,169 @@
+```plantuml
+@startuml
+' Global settings for consistent style
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam shadowing false
+
+' Define Enums first as they are used by other classes
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+enum CourseLevel {
+    Undergraduate
+    Postgraduate
+    Doctorate
+    _Other
+}
+
+enum NotificationType {
+    Announcement
+    AssignmentDeadline
+    Submission
+    _General
+}
+
+' Abstract User class - Foundation for all system users
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    --
+    + {abstract} getInfo() : String
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+    + receiveNotification(notification : Notification)
+}
+
+' Student class - Specific role with student-related behaviors
+class Student {
+    --
+    + browseCourses() : List<CourseOffering>
+    + enrollInCourse(offering : CourseOffering) : Enrollment
+    + viewAnnouncements(offering : CourseOffering) : List<Notification>
+    + trackEnrollmentStatus(enrollment : Enrollment) : EnrollmentStatus
+}
+
+' Instructor class - Specific role with instructor-related behaviors and authorization for course management
+class Instructor {
+    --
+    + createCourseOffering(course : Course, level : CourseLevel, year : int, semester : String) : CourseOffering
+    + updateCourseMaterial(offering : CourseOffering, materialId : String, newContent : String)
+    + sendNotification(offering : CourseOffering, message : String, type : NotificationType)
+}
+
+' Abstract Course class - Defines common properties for all courses
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    --
+    + {abstract} getInfo() : String
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+}
+
+' Concrete Course types - currently no specific attributes/operations, but allows future extension
+class UndergraduateCourse extends Course {
+    --
+    + getInfo() : String
+}
+
+class PostgraduateCourse extends Course {
+    --
+    + getInfo() : String
+}
+
+' CourseOffering class - Represents a specific instance of a course being offered
+class CourseOffering {
+    - offeringId : String
+    - year : int
+    - semester : String
+    - maxStudents : int
+    - currentEnrollments : int
+    - courseLevel : CourseLevel
+    - materials : Map<String, String> ' materialId -> content
+    --
+    + getOfferingId() : String
+    + getYear() : int
+    + getSemester() : String
+    + getMaxStudents() : int
+    + getCurrentEnrollments() : int
+    + getCourseLevel() : CourseLevel
+    + addMaterial(materialId : String, content : String)
+    + updateMaterial(materialId : String, newContent : String)
+    + removeMaterial(materialId : String)
+    + incrementEnrollment() : boolean
+    + decrementEnrollment() : boolean
+}
+
+' Enrollment class - An association class linking a Student to a CourseOffering, with specific attributes for the relationship
+class Enrollment {
+    - enrollmentId : String
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    --
+    + getEnrollmentId() : String
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + updateStatus(newStatus : EnrollmentStatus)
+}
+
+' Notification class - Represents a message to be delivered to a user
+class Notification {
+    - notificationId : String
+    - message : String
+    - timestamp : Date
+    - type : NotificationType
+    --
+    + getNotificationId() : String
+    + getMessage() : String
+    + getTimestamp() : Date
+    + getType() : NotificationType
+}
+
+' NotificationService class - Responsible for delivering notifications
+class NotificationService {
+    --
+    + deliver(notification : Notification, recipient : User)
+}
+
+' Relationships
+
+' Inheritance
+User <|-- Student
+User <|-- Instructor
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' Associations
+Instructor "1" --> "0..*" CourseOffering : manages >
+note on link: Instructor creates and updates Course Offerings.
+
+CourseOffering "1" *-- "1" Course : offers >
+note on link: A CourseOffering is an instance of a specific Course definition.
+
+Student "1" -- "0..*" Enrollment : has >
+CourseOffering "1" -- "0..*" Enrollment : records >
+Enrollment "0..*" --> "1" Student : for
+Enrollment "0..*" --> "1" CourseOffering : in
+note on link: Enrollment is an association class representing a student's enrollment in a course offering.
+
+NotificationService "1" --> "*" Notification : delivers >
+Notification "1" --> "1" User as sender : from >
+Notification "1" --> "1" User as recipient : to >
+note on link: A notification is sent by one user to another.
+
+CourseOffering "1" --> "0..*" Notification : triggers >
+note on link: CourseOfferings can trigger notifications (e.g., announcements).
+Notification "0..*" --> "0..1" CourseOffering : relatedTo >
+note on link: A notification can optionally be related to a specific course offering.
+
+@enduml
+```

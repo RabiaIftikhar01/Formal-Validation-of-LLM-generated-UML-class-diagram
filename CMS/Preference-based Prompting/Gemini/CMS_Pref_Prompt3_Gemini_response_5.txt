@@ -1,0 +1,166 @@
+@startuml
+' Configuration for a cleaner diagram
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam class {
+    BorderColor #2F4F4F
+    BackgroundColor #E0FFFF
+    ArrowColor #2F4F4F
+}
+skinparam enum {
+    BorderColor #6A5ACD
+    BackgroundColor #E6E6FA
+}
+
+' --- User Hierarchy ---
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    --
+    + {abstract} getInfo() : String
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+    + receiveNotification(notification : Notification)
+}
+
+class Student {
+    --
+    + browseCourses() : List<Course>
+    + enroll(course : Course) : Enrollment
+    + viewCourseContent(course : Course) : String
+    + trackEnrollment(enrollment : Enrollment) : EnrollmentStatus
+}
+
+class Instructor {
+    --
+    + createCourseOffering(title : String, description : String, level : CourseLevel) : Course
+    + updateCourseMaterial(course : Course, material : String)
+    + sendAnnouncement(course : Course, message : String)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' --- Course System ---
+enum CourseLevel {
+    Undergraduate
+    Postgraduate
+}
+
+abstract class Course {
+    - courseId : String
+    - title : String
+    - description : String
+    - materials : List<String>
+    - level : CourseLevel
+    --
+    + {abstract} getInfo() : String
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+    + addMaterial(material : String)
+    + getMaterials() : List<String>
+    + releaseOffering()
+}
+
+class UndergraduateCourse extends Course {
+    --
+    + getInfo() : String
+}
+
+class PostgraduateCourse extends Course {
+    --
+    + getInfo() : String
+}
+
+Course <|-- UndergraduateCourse
+Course <|-- PostgraduateCourse
+
+' --- Enrollment System ---
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+class Enrollment {
+    - enrollmentId : String
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    --
+    + getEnrollmentId() : String
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + updateStatus(newStatus : EnrollmentStatus)
+}
+
+' Association Class: Enrollment links a Student to a Course with specific attributes
+Student "1" -- "0..*" Enrollment : enrollsIn >
+Course "1" -- "0..*" Enrollment : hasEnrollment >
+Enrollment --> Student : for
+Enrollment --> Course : in
+
+' --- Notification System ---
+class Notification {
+    - notificationId : String
+    - message : String
+    - timestamp : Date
+    - isRead : boolean = false
+    - sender : User
+    - sourceCourse : Course
+    --
+    + getNotificationId() : String
+    + getMessage() : String
+    + getTimestamp() : Date
+    + isRead() : boolean
+    + getSender() : User
+    + getSourceCourse() : Course
+    + markAsRead()
+}
+
+class NotificationService {
+    --
+    + send(notification : Notification, recipient : User)
+    + sendBatch(notification : Notification, recipients : List<User>)
+}
+
+' Relationships for Notification
+User "1" o-- "0..*" Notification : receives >
+Notification --> User : sender
+Notification --> Course : source
+
+' --- Core Interactions and Dependencies ---
+Instructor "1" --> "0..*" Course : manages >
+Instructor ..> NotificationService : uses >
+Student ..> Course : browses / views >
+Course ..> NotificationService : triggers >
+Student ..> Enrollment : tracks >
+
+
+' --- Explanatory Notes ---
+note as N1
+  Instructor creates course offerings and updates materials.
+  Only instructors are authorized for these actions.
+end note
+Instructor . N1
+Course . N1
+
+note as N2
+  Enrollment captures specific details (date, status)
+  for a student's participation in a course.
+end note
+Enrollment . N2
+
+note as N3
+  NotificationService handles the delivery mechanism,
+  while Notification represents the message content,
+  including sender and related course.
+end note
+NotificationService . N3
+Notification . N3
+
+@enduml

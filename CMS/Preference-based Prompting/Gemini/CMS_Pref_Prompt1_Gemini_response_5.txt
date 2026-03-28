@@ -1,0 +1,183 @@
+```plantuml
+@startuml
+' Design Practice 1, 23: Strive for simplicity and use descriptive names.
+' Design Practice 4, 24: Maintain consistent naming conventions (PascalCase for classes, camelCase for attributes/methods).
+
+' Abstract base class for all users in the system
+abstract class User {
+    - userId : String
+    - name : String
+    - email : String
+    --
+    ' Design Practice 9, 10: Public access methods for private attributes.
+    + getUserId() : String
+    + getName() : String
+    + getEmail() : String
+    + {abstract} getInfo() : String
+}
+
+' Student class, inherits from User
+class Student {
+    ' No additional attributes specific to Student beyond User's
+    --
+    ' Design Practice 6, 8: Manageable set of responsibilities/operations.
+    + browseCourses()
+    + enrollInCourse(offering : CourseOffering)
+    + viewAnnouncements(offering : CourseOffering)
+    + trackEnrollmentStatus(enrollment : Enrollment)
+    + viewCourseContent(offering : CourseOffering)
+}
+
+' Instructor class, inherits from User
+class Instructor {
+    ' No additional attributes specific to Instructor beyond User's
+    --
+    ' Design Practice 6, 8: Manageable set of responsibilities/operations.
+    + createCourseOffering(definition : CourseDefinition, semester : String, year : int) : CourseOffering
+    + publishCourseOffering(offering : CourseOffering)
+    + updateCourseMaterial(offering : CourseOffering, materialId : String, content : String)
+    + sendCourseNotification(offering : CourseOffering, message : String)
+}
+
+' Abstract base class for defining a course's curriculum
+abstract class CourseDefinition {
+    - courseId : String
+    - title : String
+    - description : String
+    --
+    ' Design Practice 9, 10: Public access methods for private attributes.
+    + getCourseId() : String
+    + getTitle() : String
+    + getDescription() : String
+    + {abstract} getInfo() : String
+}
+
+' Concrete course definition for undergraduate level
+class UndergraduateCourse extends CourseDefinition {
+    ' Specific attributes/methods for undergraduate courses can be added here
+    --
+    + getInfo() : String
+}
+
+' Concrete course definition for postgraduate level
+class PostgraduateCourse extends CourseDefinition {
+    ' Specific attributes/methods for postgraduate courses can be added here
+    --
+    + getInfo() : String
+}
+
+' Represents a specific instance of a course being offered (e.g., "Calculus I - Fall 2023")
+' Design Practice 5: Attributes are assigned carefully.
+class CourseOffering {
+    - offeringId : String
+    - semester : String
+    - year : int
+    - materials : List<String> ' Simplified for materials; could be a separate Material class
+    - isPublished : boolean = false
+    --
+    ' Design Practice 9, 10: Access methods.
+    + getOfferingId() : String
+    + getSemester() : String
+    + getYear() : int
+    + getMaterials() : List<String>
+    + addMaterial(material : String)
+    + removeMaterial(material : String)
+    + publish()
+    + unpublish()
+}
+
+' Enum for explicit enrollment statuses
+' Design Practice 22: Standard UML notation for enum.
+enum EnrollmentStatus {
+    Waitlisted
+    Active
+    Completed
+}
+
+' Association class to capture details of a student's enrollment in a course offering.
+' Design Practice 20: Use association class for relationship-specific attributes.
+' Design Practice 15: Multiplicity explains business rules (e.g., enrollment date, status).
+class Enrollment {
+    - enrollmentDate : Date
+    - status : EnrollmentStatus
+    --
+    ' Design Practice 9, 10: Access methods.
+    + getEnrollmentDate() : Date
+    + getStatus() : EnrollmentStatus
+    + updateStatus(newStatus : EnrollmentStatus)
+    + getEnrollmentDetails() : String
+}
+
+' Encapsulates notification data
+class Notification {
+    - message : String
+    - timestamp : Date
+    - recipient : User ' Design Practice 12: Unidirectional association to User.
+    --
+    ' Design Practice 9, 10: Access methods.
+    + getMessage() : String
+    + getTimestamp() : Date
+    + getRecipient() : User
+    + displayNotification()
+}
+
+' Service responsible for sending notifications
+' Design Practice 27: Loosely coupled to other components.
+class NotificationService {
+    ' Could log sent notifications, but simplified for clarity.
+    --
+    ' Design Practice 10: Public operation for sending notifications.
+    + sendNotification(message : String, recipient : User)
+}
+
+' --- Relationships ---
+' Design Practice 21: Identify relationships.
+' Design Practice 15: Determine multiplicity.
+' Design Practice 16, 17, 18, 19: Use relationship names or role names for clarity.
+
+' Inheritance relationships
+User <|-- Student
+User <|-- Instructor
+
+CourseDefinition <|-- UndergraduateCourse
+CourseDefinition <|-- PostgraduateCourse
+
+' Associations
+' An Instructor manages (creates, updates, publishes) multiple CourseOfferings.
+Instructor "1" -- "0..*" CourseOffering : manages >
+' Design Practice 12: Unidirectional from Instructor to CourseOffering as Instructor initiates actions.
+
+' A CourseDefinition can have multiple CourseOfferings based on it.
+CourseDefinition "1" -- "0..*" CourseOffering : defines >
+' Design Practice 12: Unidirectional from CourseDefinition to CourseOffering.
+
+' Enrollment is an association class between Student and CourseOffering.
+' A Student can have many Enrollments. A CourseOffering can have many Enrollments.
+Student "1" -- "0..*" Enrollment
+CourseOffering "1" -- "0..*" Enrollment
+Enrollment -- EnrollmentStatus
+
+' A Notification is sent to a specific User.
+Notification --> "1" User : recipient >
+' Design Practice 12: Unidirectional from Notification to User.
+
+' NotificationService sends multiple Notifications. Composition implies service manages Notification lifecycle.
+NotificationService "1" *-- "0..*" Notification : sends >
+
+' Dependencies (loose coupling)
+' Instructor uses NotificationService to send notifications.
+Instructor .> NotificationService : uses >
+
+' CourseOffering might trigger notifications (e.g., for deadlines) via NotificationService.
+CourseOffering .> NotificationService : triggers >
+
+' Design Practice 25: Add explanatory notes for complex sections.
+note "CourseDefinition represents the abstract blueprint of a course (e.g., 'Calculus I').\nCourseOffering represents a specific instance of that course taught in a particular semester (e.g., 'Calculus I - Fall 2023'). This separation enhances flexibility and maintenance." as CourseNote
+CourseDefinition .. CourseNote
+CourseOffering .. CourseNote
+
+note "Enrollment is an association class that holds details specific to a student's participation in a particular course offering, such as enrollment date and status." as EnrollmentNote
+Enrollment .. EnrollmentNote
+
+@enduml
+```
