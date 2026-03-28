@@ -1,0 +1,150 @@
+@startuml
+' Naming convention: PascalCase for classes, camelCase for attributes and methods
+
+' Abstract base class for all users
+abstract class User {
+  - userId: String
+  - name: String
+  - email: String
+  + getInfo() : String
+  + getUserId() : String
+  + getName() : String
+  + getEmail() : String
+  + setName(name: String)
+  + setEmail(email: String)
+}
+
+' Student class inherits User
+class Student {
+  + viewMaterial(course: Course)
+  + browseCourses() : List<Course>
+  + viewAnnouncements(course: Course) : List<Notification>
+  + trackEnrollmentStatus(course: Course) : EnrollmentStatus
+}
+
+' Instructor class inherits User
+class Instructor {
+  + createCourseOffering(courseType: CourseType, title: String, description: String) : CourseOffering
+  + updateCourseMaterial(courseOffering: CourseOffering, material: CourseMaterial)
+  + sendNotification(notification: Notification, recipients: List<User>)
+}
+
+User <|-- Student
+User <|-- Instructor
+
+' CourseOffering is abstract to allow extension for multiple types of courses
+abstract class CourseOffering {
+  - courseId: String
+  - title: String
+  - description: String
+  - materials: List<CourseMaterial>
+  + getInfo() : String
+  + addMaterial(material: CourseMaterial)
+  + updateMaterial(material: CourseMaterial)
+  + getMaterials() : List<CourseMaterial>
+}
+
+' Concrete course types
+class Undergraduate extends CourseOffering
+class Postgraduate extends CourseOffering
+
+CourseOffering <|-- Undergraduate
+CourseOffering <|-- Postgraduate
+
+' CourseMaterial encapsulates course content, can be extended if needed
+class CourseMaterial {
+  - materialId: String
+  - title: String
+  - content: String
+  + getTitle() : String
+  + getContent() : String
+  + setContent(content: String)
+}
+
+' Enrollment records a student's participation in a course offering
+class Enrollment {
+  - enrollmentDate: Date
+  - status: EnrollmentStatus
+  + getEnrollmentDate() : Date
+  + getStatus() : EnrollmentStatus
+  + setStatus(status: EnrollmentStatus)
+}
+
+' Enum for enrollment status
+enum EnrollmentStatus {
+  Waitlisted
+  Active
+  Completed
+}
+
+' Association classes and relationships
+
+' A Student enrolls in zero or more CourseOfferings, each enrollment 
+' connects one student and one course offering with additional info
+Student "1" -- "0..*" Enrollment : enrollment
+CourseOffering "1" -- "0..*" Enrollment : enrollment
+
+' Enrollment links to both Student and CourseOffering
+Enrollment --> Student
+Enrollment --> CourseOffering
+
+' Notification represents messages sent to users about events
+class Notification {
+  - notificationId: String
+  - message: String
+  - timestamp: Date
+  + getMessage() : String
+  + getTimestamp() : Date
+}
+
+' NotificationService handles delivering notifications to users
+class NotificationService {
+  + sendNotification(notification: Notification, recipient: User)
+}
+
+' Relationships for notifications:
+' CourseOffering triggers notifications (like announcements, deadlines)
+CourseOffering "1" --> "0..*" Notification : triggers
+
+' Users receive notifications
+User "1" --> "0..*" Notification : receives
+
+' Instructor publishes course offerings
+Instructor "1" --> "0..*" CourseOffering : publishes
+
+' Notes to explain design decisions
+note top of User 
+  Abstract base class for all user types (Student, Instructor).
+  Encapsulates common attributes and access methods.
+end note
+
+note top of CourseOffering
+  Abstract course offering to represent common properties and
+  behaviors of courses regardless of type (Undergraduate, Postgraduate).
+  Supports extensibility for future course types.
+end note
+
+note right of Enrollment
+  Association class linking Student and CourseOffering with 
+  enrollmentDate and status to capture enrollment details.
+end note
+
+note bottom of NotificationService
+  Responsible for delivering notifications to users,
+  supports loose coupling between users and notification mechanism.
+end note
+
+@enduml
+
+---
+
+### Explanation:
+
+- **User**, **Student**, and **Instructor**: Users have common info; students and instructors extend this. Students can view materials and track enrollment; instructors can create courses, update materials, and send notifications.
+- **CourseOffering** is abstract with concrete subclasses **Undergraduate** and **Postgraduate** for different course types, making it extensible.
+- **CourseMaterial** is separated to encapsulate course content and allow easy updates.
+- **Enrollment** is an association class linking students and courses with enrollmentDate and status, modeling enrollment details cleanly.
+- **Notification** and **NotificationService** handle notifications with loose coupling, avoiding tight dependencies.
+- Multiplicities and unidirectional associations are chosen to reduce coupling and increase maintainability.
+- Access methods (getters/setters) are provided for attributes that may need external access.
+- The diagram follows naming conventions and is kept simple, avoiding unnecessary complexity while supporting extensibility and maintainability.
