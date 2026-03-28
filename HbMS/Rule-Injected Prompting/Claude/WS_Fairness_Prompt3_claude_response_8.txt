@@ -1,0 +1,134 @@
+```plantuml
+@startuml
+
+class Patient {
+  - patientId: String
+  - name: String
+  - contactInfo: String
+  - patientType: String
+  + getPatientId(): String
+  + getName(): String
+  + getPatientType(): String
+  + setContactInfo(info: String): void
+}
+
+class HospitalStay {
+  - stayId: String
+  - admissionDate: Date
+  - dischargeDate: Date
+  - stayType: String
+  + getStayId(): String
+  + getAdmissionDate(): Date
+  + getDischargeDate(): Date
+  + getStayType(): String
+}
+
+class Invoice {
+  - invoiceId: String
+  - generationDate: Date
+  - totalAmount: Double
+  - status: String
+  + getInvoiceId(): String
+  + getTotalAmount(): Double
+  + setStatus(status: String): void
+  + generateInvoice(): void
+}
+
+abstract class BillingPolicy {
+  # policyId: String
+  # policyName: String
+  + {abstract} calculateBill(charges: List<Charge>): Double
+  + getPolicyId(): String
+  + getPolicyName(): String
+}
+
+class InsuranceBillingPolicy {
+  - coverageLimit: Double
+  - copayPercentage: Double
+  - deductible: Double
+  + calculateBill(charges: List<Charge>): Double
+  + setCoverageLimit(limit: Double): void
+  + setCopayPercentage(percentage: Double): void
+}
+
+class GovernmentSubsidyPolicy {
+  - subsidyRate: Double
+  - eligibilityCriteria: String
+  + calculateBill(charges: List<Charge>): Double
+  + setSubsidyRate(rate: Double): void
+}
+
+class SelfPayPolicy {
+  + calculateBill(charges: List<Charge>): Double
+}
+
+abstract class Charge {
+  # chargeId: String
+  # description: String
+  # baseAmount: Double
+  + {abstract} computeCost(): Double
+  + getChargeId(): String
+  + getDescription(): String
+  + getBaseAmount(): Double
+}
+
+class ProcedureCharge {
+  - procedureCode: String
+  - complexity: String
+  + computeCost(): Double
+  + getProcedureCode(): String
+}
+
+class MedicationCharge {
+  - medicationName: String
+  - quantity: Integer
+  - unitPrice: Double
+  + computeCost(): Double
+  + getQuantity(): Integer
+}
+
+class DiagnosticCharge {
+  - testType: String
+  - equipmentUsed: String
+  + computeCost(): Double
+  + getTestType(): String
+}
+
+class AccommodationCharge {
+  - roomType: String
+  - numberOfDays: Integer
+  - dailyRate: Double
+  + computeCost(): Double
+  + getNumberOfDays(): Integer
+}
+
+class BillingService {
+  - policyRegistry: Map<String, BillingPolicy>
+  + generateInvoice(patient: Patient, stay: HospitalStay): Invoice
+  + selectPolicy(patient: Patient): BillingPolicy
+  + aggregateCharges(stay: HospitalStay): List<Charge>
+  - calculateTotalAmount(charges: List<Charge>, policy: BillingPolicy): Double
+}
+
+class InsuranceInfo {
+  - insuranceId: String
+  - providerName: String
+  - coverageDetails: String
+  - expiryDate: Date
+  + getInsuranceId(): String
+  + getProviderName(): String
+  + isValid(): Boolean
+}
+
+class PolicyConfiguration {
+  - configId: String
+  - parameters: Map<String, Object>
+  - lastUpdated: Date
+  + updateParameter(key: String, value: Object): void
+  + getParameter(key: String): Object
+  + getLastUpdated(): Date
+}
+
+Patient "1" -- "0..1" InsuranceInfo : has >
+Patient "1" -- "1..*" HospitalStay : undergoes >
+HospitalStay "1"

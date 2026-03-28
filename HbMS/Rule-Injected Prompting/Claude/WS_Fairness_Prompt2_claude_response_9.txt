@@ -1,0 +1,139 @@
+```plantuml
+@startuml
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor<<interface>> LightYellow
+    BorderColor<<interface>> Black
+}
+
+class Patient {
+    - patientId: String
+    - name: String
+    - contactInfo: String
+    - patientType: String
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getContactInfo(): String
+    + getPatientType(): String
+    + setContactInfo(info: String): void
+}
+
+class Bill {
+    - billId: String
+    - billDate: Date
+    - totalAmount: double
+    - status: String
+    --
+    + getBillId(): String
+    + getBillDate(): Date
+    + getTotalAmount(): double
+    + getStatus(): String
+    + setStatus(status: String): void
+    + addLineItem(item: BillLineItem): void
+    + calculateTotal(): double
+}
+
+class BillLineItem {
+    - itemId: String
+    - description: String
+    - quantity: int
+    - unitPrice: double
+    - amount: double
+    --
+    + getItemId(): String
+    + getDescription(): String
+    + getQuantity(): int
+    + getUnitPrice(): double
+    + getAmount(): double
+    + calculateAmount(): double
+}
+
+abstract class BillingPolicy {
+    - policyId: String
+    - policyName: String
+    --
+    + getPolicyId(): String
+    + getPolicyName(): String
+    {abstract} + calculateBillAmount(bill: Bill): double
+    {abstract} + applyPolicy(lineItem: BillLineItem): double
+}
+
+class InsurancePolicy {
+    - coverageLimit: double
+    - copaymentPercentage: double
+    - insuranceProvider: String
+    --
+    + getCoverageLimit(): double
+    + getCopaymentPercentage(): double
+    + getInsuranceProvider(): String
+    + setCoverageLimit(limit: double): void
+    + setCopaymentPercentage(percentage: double): void
+    + calculateBillAmount(bill: Bill): double
+    + applyPolicy(lineItem: BillLineItem): double
+}
+
+class GovernmentPolicy {
+    - subsidyRate: double
+    - programName: String
+    - eligibilityCriteria: String
+    --
+    + getSubsidyRate(): double
+    + getProgramName(): String
+    + getEligibilityCriteria(): String
+    + setSubsidyRate(rate: double): void
+    + calculateBillAmount(bill: Bill): double
+    + applyPolicy(lineItem: BillLineItem): double
+}
+
+class SelfPayPolicy {
+    - discountThreshold: double
+    --
+    + getDiscountThreshold(): double
+    + setDiscountThreshold(threshold: double): void
+    + calculateBillAmount(bill: Bill): double
+    + applyPolicy(lineItem: BillLineItem): double
+}
+
+class BillingService {
+    --
+    + generateBill(patient: Patient, services: List<Service>): Bill
+    + applyBillingPolicy(bill: Bill, policy: BillingPolicy): double
+    + finalizeBill(bill: Bill): void
+}
+
+abstract class Service {
+    - serviceId: String
+    - serviceName: String
+    - basePrice: double
+    --
+    + getServiceId(): String
+    + getServiceName(): String
+    + getBasePrice(): double
+    + setBasePrice(price: double): void
+    {abstract} + calculateCharge(): double
+}
+
+class ClinicalProcedure {
+    - procedureType: String
+    - duration: int
+    --
+    + getProcedureType(): String
+    + getDuration(): int
+    + calculateCharge(): double
+}
+
+class Pharmaceutical {
+    - medicationName: String
+    - dosage: String
+    - quantity: int
+    --
+    + getMedicationName(): String
+    + getDosage(): String
+    + getQuantity(): int
+    + calculateCharge(): double
+}
+
+class LaboratoryTest {
+    - testType: String
+    - urgency: String

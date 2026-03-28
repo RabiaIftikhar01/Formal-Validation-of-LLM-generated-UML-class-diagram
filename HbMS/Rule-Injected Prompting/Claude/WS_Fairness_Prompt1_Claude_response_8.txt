@@ -1,0 +1,127 @@
+```plantuml
+@startuml
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+}
+
+class Patient {
+    - patientId: String
+    - name: String
+    - contactInfo: String
+    - patientType: String
+    --
+    + Patient(patientId: String, name: String)
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): String
+    + setPatientType(type: String): void
+}
+
+class DischargeBill {
+    - billId: String
+    - billDate: Date
+    - totalAmount: Double
+    - status: String
+    --
+    + DischargeBill(billId: String)
+    + calculateTotal(): Double
+    + getTotalAmount(): Double
+    + setTotalAmount(amount: Double): void
+    + getBillId(): String
+    + generateBillSummary(): String
+}
+
+abstract class BillingPolicy {
+    # policyId: String
+    # policyName: String
+    --
+    + BillingPolicy(policyId: String)
+    + {abstract} applyPolicy(charges: List<Charge>): Double
+    + getPolicyId(): String
+    + getPolicyName(): String
+}
+
+class InsuranceBillingPolicy {
+    - coveragePercentage: Double
+    - reimbursementLimit: Double
+    - copaymentAmount: Double
+    --
+    + InsuranceBillingPolicy(policyId: String)
+    + applyPolicy(charges: List<Charge>): Double
+    + setCoveragePercentage(percentage: Double): void
+    + setReimbursementLimit(limit: Double): void
+    + setCopaymentAmount(amount: Double): void
+    - calculateCoverage(totalCharges: Double): Double
+}
+
+class GovernmentProgramPolicy {
+    - subsidyRate: Double
+    - fixedRateTable: Map
+    --
+    + GovernmentProgramPolicy(policyId: String)
+    + applyPolicy(charges: List<Charge>): Double
+    + setSubsidyRate(rate: Double): void
+    + updateRateTable(table: Map): void
+    - applySubsidizedRates(charges: List<Charge>): Double
+}
+
+class SelfPayPolicy {
+    --
+    + SelfPayPolicy(policyId: String)
+    + applyPolicy(charges: List<Charge>): Double
+    - calculateFullAmount(charges: List<Charge>): Double
+}
+
+abstract class Charge {
+    # chargeId: String
+    # description: String
+    # baseAmount: Double
+    # chargeDate: Date
+    --
+    + Charge(chargeId: String, description: String)
+    + {abstract} calculateAmount(): Double
+    + getChargeId(): String
+    + getDescription(): String
+    + getBaseAmount(): Double
+    + setBaseAmount(amount: Double): void
+}
+
+class ProcedureCharge {
+    - procedureCode: String
+    - procedureName: String
+    --
+    + ProcedureCharge(chargeId: String, description: String)
+    + calculateAmount(): Double
+    + setProcedureCode(code: String): void
+}
+
+class MedicationCharge {
+    - medicationName: String
+    - quantity: Integer
+    - unitPrice: Double
+    --
+    + MedicationCharge(chargeId: String, description: String)
+    + calculateAmount(): Double
+    + setQuantity(qty: Integer): void
+    + setUnitPrice(price: Double): void
+}
+
+class DiagnosticCharge {
+    - testType: String
+    - testCode: String
+    --
+    + DiagnosticCharge(chargeId: String, description: String)
+    + calculateAmount(): Double
+    + setTestType(type: String): void
+}
+
+class RoomCharge {
+    - roomType: String
+    - numberOfDays: Integer
+    - dailyRate: Double
+    --
+    + RoomCharge(chargeId: String, description: String)
+    + calculateAmount(): Double
+    
