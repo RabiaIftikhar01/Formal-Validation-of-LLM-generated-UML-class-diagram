@@ -1,0 +1,177 @@
+```plantuml
+@startuml
+' Naming convention: PascalCase for classes, camelCase for attributes and methods
+
+' -------------------------
+' Patient related classes
+' -------------------------
+class Patient {
+  - patientId: String
+  - name: String
+  - admissionDate: Date
+  - dischargeDate: Date
+  - patientType: PatientType
+  + getPatientId(): String
+  + getName(): String
+  + getAdmissionDate(): Date
+  + getDischargeDate(): Date
+  + getPatientType(): PatientType
+}
+
+enum PatientType {
+  INPATIENT
+  OUTPATIENT
+}
+
+' -------------------------
+' Billing related classes
+' -------------------------
+class Bill {
+  - billId: String
+  - patientId: String
+  - billDate: Date
+  - totalAmount: Money
+  + getBillId(): String
+  + getPatientId(): String
+  + getBillDate(): Date
+  + getTotalAmount(): Money
+  + calculateTotal(): void  ' Implemented by applying BillingPolicy
+}
+
+class Charge {
+  - chargeId: String
+  - description: String
+  - amount: Money
+  + getChargeId(): String
+  + getDescription(): String
+  + getAmount(): Money
+}
+
+' -------------------------
+' Pricing components - diverse charge sources
+' -------------------------
+abstract class ChargeSource {
+  + getCharge(patient: Patient): Charge
+}
+
+class ProcedureChargeSource {
+  + getCharge(patient: Patient): Charge
+}
+
+class MedicationChargeSource {
+  + getCharge(patient: Patient): Charge
+}
+
+class DiagnosticChargeSource {
+  + getCharge(patient: Patient): Charge
+}
+
+class RoomChargeSource {
+  + getCharge(patient: Patient): Charge
+}
+
+' -------------------------
+' Billing Policy related classes
+' -------------------------
+interface BillingPolicy {
+  + calculateBill(charges: List~Charge~, patient: Patient): Money
+}
+
+class InsuranceBillingPolicy {
+  - coverageRules: CoverageRules
+  - reimbursementLimits: ReimbursementLimits
+  - coPaymentStructure: CoPaymentStructure
+  + calculateBill(charges: List~Charge~, patient: Patient): Money
+}
+
+class GovernmentBillingPolicy {
+  - subsidizedRates: SubsidizedRates
+  + calculateBill(charges: List~Charge~, patient: Patient): Money
+}
+
+class SelfPayBillingPolicy {
+  + calculateBill(charges: List~Charge~, patient: Patient): Money
+}
+
+' -------------------------
+' Supporting classes for policies
+' -------------------------
+class CoverageRules {
+  + isCovered(procedureCode: String): Boolean
+  + getCoveragePercentage(procedureCode: String): float
+}
+
+class ReimbursementLimits {
+  + getLimit(procedureCode: String): Money
+}
+
+class CoPaymentStructure {
+  + getCoPaymentAmount(procedureCode: String): Money
+}
+
+class SubsidizedRates {
+  + getRate(procedureCode: String): Money
+}
+
+' -------------------------
+' Billing Policy Factory - selects policy at runtime
+' -------------------------
+class BillingPolicyFactory {
+  + getBillingPolicy(patient: Patient): BillingPolicy
+}
+
+' -------------------------
+' Money class for currency abstraction
+' -------------------------
+class Money {
+  - amount: double
+  - currency: String
+  + getAmount(): double
+  + getCurrency(): String
+  + add(other: Money): Money
+  + multiply(factor: double): Money
+}
+
+' -------------------------
+' Relationships
+' -------------------------
+Patient "1" --> "0..*" Charge : hasCharges
+Bill "1" --> "1" Patient : forPatient
+Bill "1" --> "0..*" Charge : includes
+BillingPolicyFactory "1" --> "1" BillingPolicy : creates >
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+BillingPolicy "1" ..> CoverageRules : uses >
+BillingPolicy "1" ..> ReimbursementLimits : uses >
+BillingPolicy "1" ..> CoPaymentStructure : uses >
+BillingPolicy "1" ..> SubsidizedRates : uses >
+
+ChargeSource <|.. ProcedureChargeSource
+ChargeSource <|.. MedicationChargeSource
+ChargeSource <|.. DiagnosticChargeSource
+ChargeSource <|.. RoomChargeSource
+
+' Association from Patient to BillingPolicy via BillingPolicyFactory is indirect, so no direct association to reduce coupling
+
+' -------------------------
+' Notes
+' -------------------------
+note top of BillingPolicyFactory
+  Factory determines billing policy based on patient info,
+  enabling runtime interchangeability of billing rules.
+end note
+
+note bottom of BillingPolicy
+  BillingPolicy interface encapsulates billing logic.
+  Different policies implement this to support extensibility.
+end note
+
+note right of ChargeSource
+  ChargeSource abstraction handles charges from various sources.
+  Each source implements its own pricing rules.
+end note
+
+@enduml
+```
