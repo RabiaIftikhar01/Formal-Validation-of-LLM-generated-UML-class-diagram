@@ -1,0 +1,288 @@
+@startuml
+!pragma layout smetana
+
+hide empty attributes
+hide empty methods
+
+skinparam classAttributeIconSize 0
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam class {
+    BorderColor #2A64AD
+    BackgroundColor #DAE8FC
+    ArrowColor #2A64AD
+    FontColor #2A64AD
+    StereotypeFontColor #2A64AD
+}
+skinparam interface {
+    BorderColor #7B68EE
+    BackgroundColor #E6E6FA
+    ArrowColor #7B68EE
+    FontColor #7B68EE
+    StereotypeFontColor #7B68EE
+}
+skinparam abstract {
+    BorderColor #8B0000
+    BackgroundColor #FFDAB9
+    ArrowColor #8B0000
+    FontColor #8B0000
+    StereotypeFontColor #8B0000
+}
+
+title Hospital Discharge Billing - Class Diagram
+
+' === Core Entities ===
+class Patient {
+    - patientId: String
+    - name: String
+    - patientType: PatientType
+    - admissionDate: Date
+    - dischargeDate: Date
+    -- Operations --
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): PatientType
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_PROGRAM
+    SELF_PAY
+}
+
+class Bill {
+    - billId: String
+    - issueDate: Date
+    - totalAmount: decimal
+    - status: BillStatus
+    -- Operations --
+    + addBillableItem(item: BillableItem): void
+    + getBillableItems(): List<BillableItem>
+    + setTotalAmount(amount: decimal): void
+    + getTotalAmount(): decimal
+}
+
+enum BillStatus {
+    GENERATED
+    PENDING_PAYMENT
+    PAID
+    CANCELLED
+}
+
+abstract class BillableItem {
+    # itemId: String
+    # description: String
+    # quantity: int
+    # basePrice: decimal
+    -- Operations --
+    + getItemId(): String
+    + getDescription(): String
+    + getQuantity(): int
+    + getBasePrice(): decimal
+    + calculateItemPrice(): decimal <<abstract>>
+}
+
+' === Billable Item Implementations ===
+class Procedure {
+    - procedureCode: String
+    - procedureName: String
+    -- Operations --
+    + calculateItemPrice(): decimal
+}
+
+class Medication {
+    - drugName: String
+    - dosage: String
+    -- Operations --
+    + calculateItemPrice(): decimal
+}
+
+class DiagnosticTest {
+    - testCode: String
+    - testName: String
+    -- Operations --
+    + calculateItemPrice(): decimal
+}
+
+class RoomStay {
+    - roomNumber: String
+    - daysStayed: int
+    -- Operations --
+    + calculateItemPrice(): decimal
+}
+
+
+' === Billing Policy Strategy ===
+interface IBillingPolicy <<Strategy>> {
+    + calculateAdjustedBillAmount(bill: Bill): decimal
+}
+
+class InsuranceBillingPolicy {
+    - insurancePolicy: InsurancePolicy
+    -- Operations --
+    + calculateAdjustedBillAmount(bill: Bill): decimal
+}
+
+class GovernmentBillingPolicy {
+    - governmentProgram: GovernmentProgram
+    -- Operations --
+    + calculateAdjustedBillAmount(bill: Bill): decimal
+}
+
+class SelfPayBillingPolicy {
+    -- Operations --
+    + calculateAdjustedBillAmount(bill: Bill): decimal
+}
+
+
+' === Policy Data / Configuration ===
+class InsurancePolicy {
+    - policyNumber: String
+    - providerName: String
+    -- Operations --
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + getCoverageRules(): List<CoverageRule>
+    + getReimbursementLimits(): List<ReimbursementLimit>
+    + getCoPaymentStructures(): List<CoPaymentStructure>
+}
+
+class GovernmentProgram {
+    - programId: String
+    - programName: String
+    -- Operations --
+    + getProgramId(): String
+    + getProgramName(): String
+    + getSubsidizedRates(): List<SubsidizedRate>
+}
+
+class CoverageRule {
+    - ruleId: String
+    - description: String
+    - coveragePercentage: decimal
+}
+
+class ReimbursementLimit {
+    - limitId: String
+    - category: String
+    - maxAmount: decimal
+}
+
+class CoPaymentStructure {
+    - structureId: String
+    - type: String
+    - amount: decimal
+}
+
+class SubsidizedRate {
+    - rateId: String
+    - serviceCategory: String
+    - fixedRate: decimal
+}
+
+
+' === Pricing Rule Strategy ===
+interface IPricingRule <<Strategy>> {
+    + calculatePrice(basePrice: decimal, quantity: int): decimal
+}
+
+class StandardPricingRule {
+    -- Operations --
+    + calculatePrice(basePrice: decimal, quantity: int): decimal
+}
+
+class DiscountPricingRule {
+    - discountPercentage: decimal
+    -- Operations --
+    + calculatePrice(basePrice: decimal, quantity: int): decimal
+}
+
+class VolumePricingRule {
+    - volumeThreshold: int
+    - discountedPrice: decimal
+    -- Operations --
+    + calculatePrice(basePrice: decimal, quantity: int): decimal
+}
+
+
+' === Orchestration / Service Layer ===
+class BillingService {
+    -- Operations --
+    + generateDischargeBill(patient: Patient, billableItems: List<BillableItem>): Bill
+    - determineBillingPolicy(patient: Patient): IBillingPolicy <<private>>
+    - applyPricingRules(billableItems: List<BillableItem>): void <<private>>
+}
+
+
+' === Relationships ===
+
+' Patient and Bill
+Patient "1" "generates" -- "0..*" Bill
+
+' Bill and Billable Items
+Bill "1" "comprises" -- "0..*" BillableItem
+
+' Billable Item Hierarchy
+BillableItem <|-- Procedure
+BillableItem <|-- Medication
+BillableItem <|-- DiagnosticTest
+BillableItem <|-- RoomStay
+
+' Billable Item and Pricing Rule
+BillableItem "1" --> "1" IPricingRule : uses >
+
+' Pricing Rule Implementations
+IPricingRule <|.. StandardPricingRule
+IPricingRule <|.. DiscountPricingRule
+IPricingRule <|.. VolumePricingRule
+
+' Billing Policy Strategy
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' Billing Policy data dependencies
+InsuranceBillingPolicy "1" --> "1" InsurancePolicy : uses >
+GovernmentBillingPolicy "1" --> "1" GovernmentProgram : uses >
+
+' Patient and Policy Data (optional associations)
+Patient "1" "may have" -- "0..1" InsurancePolicy
+Patient "1" "may have" -- "0..1" GovernmentProgram
+
+' Insurance Policy and its components
+InsurancePolicy "1" -- "0..*" CoverageRule
+InsurancePolicy "1" -- "0..*" ReimbursementLimit
+InsurancePolicy "1" -- "0..*" CoPaymentStructure
+
+' Government Program and its components
+GovernmentProgram "1" -- "0..*" SubsidizedRate
+
+' Billing Service Orchestration
+BillingService "1" --> "1" Patient : processes for >
+BillingService "1" ..> "1" Bill : creates >
+BillingService "1" ..> "1" IBillingPolicy : determines & applies >
+BillingService "1" ..> "0..*" BillableItem : gathers >
+BillingService "1" ..> "1" IPricingRule : applies >
+
+' Enums
+PatientType .. Patient
+BillStatus .. Bill
+
+' Notes for clarity
+note "Encapsulates logic for calculating total bill based on patient type." as N1
+IBillingPolicy .. N1
+
+note "Encapsulates logic for determining the price of a single billable item." as N2
+IPricingRule .. N2
+
+note "Orchestrates the entire billing process: \n1. Gathers billable items for a patient.\n2. Determines the appropriate billing policy.\n3. Applies pricing rules to each item.\n4. Applies the overall billing policy to the bill.\n5. Generates the final bill." as N3
+BillingService .. N3
+
+note "These classes store configurable parameters that govern how policies calculate charges." as N4
+CoverageRule .. N4
+ReimbursementLimit .. N4
+CoPaymentStructure .. N4
+SubsidizedRate .. N4
+
+@enduml

@@ -1,0 +1,218 @@
+@startuml
+!define LIGHTBLUE #ADD8E6
+!define LIGHTGREEN #90EE90
+!define LIGHTYELLOW #FFFACD
+!define LIGHTPINK #FFC0CB
+!define LIGHTGREY #D3D3D3
+
+skinparam class {
+    BackgroundColor LIGHTBLUE
+    BorderColor #444
+    ArrowColor #444
+    AttributeFontColor #444
+    MethodFontColor #444
+}
+
+skinparam interface {
+    BackgroundColor LIGHTGREEN
+    BorderColor #444
+    ArrowColor #444
+}
+
+skinparam abstract {
+    BackgroundColor LIGHTYELLOW
+    BorderColor #444
+    ArrowColor #444
+}
+
+skinparam enum {
+    BackgroundColor LIGHTGREY
+    BorderColor #444
+    ArrowColor #444
+}
+
+' Classes representing core domain entities
+class Patient {
+    - patientId: String
+    - name: String
+    - patientClassification: PatientClassification
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getPatientClassification(): PatientClassification
+}
+
+enum PatientClassification {
+    INSURED
+    GOVERNMENT
+    SELF_PAY
+}
+
+class InsuranceDetails {
+    - providerName: String
+    - policyNumber: String
+    - coveragePercentage: Map<String, Double>
+    - coPaymentAmount: BigDecimal
+    --
+    + getCoverageForService(serviceCode: String): Double
+    + getCoPaymentAmount(): BigDecimal
+}
+
+class Bill {
+    - billId: String
+    - billDate: Date
+    - totalAmount: BigDecimal
+    --
+    + getBillId(): String
+    + getBillDate(): Date
+    + getTotalAmount(): BigDecimal
+    + addLineItem(item: BillLineItem)
+}
+
+class BillLineItem {
+    - description: String
+    - unitPrice: BigDecimal
+    - quantity: int
+    - lineTotal: BigDecimal
+    --
+    + getDescription(): String
+    + getUnitPrice(): BigDecimal
+    + getQuantity(): int
+    + getLineTotal(): BigDecimal
+}
+
+' Abstract base for all types of services/products a patient might be charged for
+abstract class ChargeItem {
+    - itemId: String
+    - description: String
+    - basePrice: BigDecimal
+    - quantity: int
+    --
+    + {abstract} getChargeType(): ChargeType
+    + getBaseAmount(): BigDecimal
+    + getItemId(): String
+    + getDescription(): String
+    + getQuantity(): int
+}
+
+enum ChargeType {
+    CLINICAL_PROCEDURE
+    PHARMACEUTICAL
+    LABORATORY_DIAGNOSTIC
+    ROOM_UTILIZATION
+}
+
+' Concrete implementations of ChargeItem
+class ClinicalProcedureCharge extends ChargeItem {
+    - procedureCode: String
+    - physician: String
+    --
+    + getChargeType(): ChargeType
+    + getProcedureCode(): String
+}
+
+class PharmaceuticalCharge extends ChargeItem {
+    - drugName: String
+    - dosage: String
+    --
+    + getChargeType(): ChargeType
+    + getDrugName(): String
+}
+
+class LaboratoryDiagnosticCharge extends ChargeItem {
+    - testName: String
+    --
+    + getChargeType(): ChargeType
+    + getTestName(): String
+}
+
+class RoomUtilizationCharge extends ChargeItem {
+    - roomNumber: String
+    - nights: int
+    --
+    + getChargeType(): ChargeType
+    + getRoomNumber(): String
+    + getNights(): int
+}
+
+' Strategy interface for different patient billing policies
+interface IBillingPolicy {
+    + applyPolicy(chargeItem: ChargeItem, patient: Patient): BigDecimal
+}
+
+' Concrete billing policy strategies
+class InsuranceBillingPolicy implements IBillingPolicy {
+    - insuranceRules: Map<String, InsuranceRule> ' Placeholder for detailed rules
+    --
+    + applyPolicy(chargeItem: ChargeItem, patient: Patient): BigDecimal
+    - getInsuranceRule(serviceCode: String): InsuranceRule
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    - subsidySchedules: Map<String, BigDecimal>
+    --
+    + applyPolicy(chargeItem: ChargeItem, patient: Patient): BigDecimal
+    - getSubsidizedRate(serviceCode: String): BigDecimal
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    + applyPolicy(chargeItem: ChargeItem, patient: Patient): BigDecimal
+}
+
+' Manages runtime configurable and replaceable billing policies
+class PolicyConfiguration {
+    - policies: Map<PatientClassification, IBillingPolicy>
+    --
+    + getPolicy(classification: PatientClassification): IBillingPolicy
+    + updatePolicy(classification: PatientClassification, policy: IBillingPolicy)
+}
+
+' Orchestrates the bill generation process
+class BillingService {
+    - policyConfiguration: PolicyConfiguration
+    --
+    + generateDischargeBill(patient: Patient, chargeItems: List<ChargeItem>): Bill
+    - determinePolicy(patient: Patient): IBillingPolicy
+    - createBillLineItem(chargeItem: ChargeItem, finalAmount: BigDecimal): BillLineItem
+}
+
+' Relationships
+
+Patient "1" --> "0..1" InsuranceDetails : has >
+Patient "1" --> "1" PatientClassification : classifies >
+
+Bill "1" -- "1" Patient : for >
+Bill "1" -- "1..*" BillLineItem : comprises >
+
+BillLineItem "1" -- "1" ChargeItem : derivesFrom >
+
+ChargeItem <|-- ClinicalProcedureCharge
+ChargeItem <|-- PharmaceuticalCharge
+ChargeItem <|-- LaboratoryDiagnosticCharge
+ChargeItem <|-- RoomUtilizationCharge
+
+ChargeItem "1" --> "1" ChargeType : categorizes >
+
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+PolicyConfiguration "1" -- "0..*" IBillingPolicy : manages >
+PolicyConfiguration "1" --> "1" PatientClassification : configuresFor >
+
+BillingService "1" --> "1" PolicyConfiguration : uses >
+BillingService "1" ..> IBillingPolicy : <<uses>> selects and applies >
+BillingService "1" ..> Patient : <<uses>> reads patient info >
+BillingService "1" ..> ChargeItem : <<uses>> processes charges >
+BillingService "1" ..> Bill : <<creates>> >
+BillingService "1" ..> BillLineItem : <<creates>> >
+
+' Notes
+note top of BillingService : Orchestrates bill generation by\napplying the appropriate billing policy.
+note top of IBillingPolicy : Strategy interface for computing\nfinal charge based on patient type.
+note top of PolicyConfiguration : Provides configurable and replaceable\nbilling policies at runtime.
+note top of ChargeItem : Abstract base for all services/products\nprovided, with their base pricing.
+note top of BillLineItem : Represents a single item on the final bill,\nresulting from policy application.
+note top of InsuranceDetails : Encapsulates patient's insurance data\nrelevant for billing.
+
+@enduml

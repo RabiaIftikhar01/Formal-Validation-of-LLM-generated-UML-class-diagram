@@ -1,0 +1,243 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' Design Practice: Classes are named as singular nouns and don't include spaces.
+' Design Practice: Class names are relatively short.
+' Design Practice: Class names can be in uppercase or lowercase, using PascalCase consistently.
+' Design Practice: Attributes and methods are camelCase.
+' Design Practice: Use standard UML notations for access specifiers.
+' + (public), - (private), # (protected).
+
+' ----------------------------------------------------------------------------------------------------
+' Core Entities - Representing fundamental data and concepts of the system
+' Design Practice: Attributes should be assigned carefully to the appropriate classes.
+' Design Practice: Choose descriptive and meaningful names for classes, attributes, and methods.
+' ----------------------------------------------------------------------------------------------------
+class Patient {
+    - patientId: String
+    - name: String
+    - dateOfBirth: Date
+    - contactInfo: String
+    - category: PatientCategory <<enum>>
+    - insuranceDetails: InsuranceDetails
+    + Patient(patientId: String, name: String, category: PatientCategory)
+    + getPatientId(): String
+    + getName(): String
+    + getCategory(): PatientCategory
+    + getInsuranceDetails(): InsuranceDetails
+    ' Design Practice: Industry standard is to create access methods for each attribute.
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+class InsuranceDetails {
+    - policyNumber: String
+    - providerName: String
+    - coverageType: String
+    - coPayPercentage: double
+    - deductibleAmount: double
+    + InsuranceDetails(policyNumber: String, providerName: String)
+    + getPolicyNumber(): String
+    + getCoPayPercentage(): double
+    ' ... other access methods ...
+}
+
+abstract class Service {
+    - serviceId: String
+    - name: String
+    - description: String
+    - baseCost: double ' Represents the base price before any policy adjustments
+    + Service(serviceId: String, name: String, baseCost: double)
+    + getServiceId(): String
+    + getName(): String
+    + getBaseCost(): double
+}
+
+class MedicalProcedure extends Service {
+    - procedureCode: String
+    + MedicalProcedure(id: String, name: String, cost: double, code: String)
+    + getProcedureCode(): String
+}
+
+class Medication extends Service {
+    - drugCode: String
+    - dosage: String
+    + Medication(id: String, name: String, cost: double, drugCode: String, dosage: String)
+    + getDrugCode(): String
+}
+
+class DiagnosticService extends Service {
+    - testCode: String
+    - modality: String
+    + DiagnosticService(id: String, name: String, cost: double, testCode: String, modality: String)
+    + getTestCode(): String
+}
+
+class Accommodation extends Service {
+    - roomType: String
+    - dailyRate: double
+    + Accommodation(id: String, name: String, cost: double, roomType: String, dailyRate: double)
+    + getRoomType(): String
+}
+
+class Bill {
+    - billId: String
+    - billingDate: Date
+    - totalAmount: double
+    - status: BillStatus <<enum>>
+    - patientId: String ' Denormalized for simple Bill record reference to Patient
+    - items: List<BillItem>
+    + Bill(patientId: String)
+    + addBillItem(item: BillItem): void
+    + calculateTotal(): void ' Design Practice: Class has a manageable set of responsibilities.
+    + getBillId(): String
+    + getTotalAmount(): double
+    + getBillItems(): List<BillItem>
+    ' ... other access methods ...
+}
+
+enum BillStatus {
+    PENDING
+    FINALIZED
+    PAID
+    CANCELLED
+}
+
+' Design Practice: Use link elements / association class when needed to avoid cluttering classes.
+' BillItem represents the specific details of a Service charged on a Bill,
+' including quantity and the cost after policy application.
+class BillItem {
+    - itemId: String
+    - serviceId: String
+    - serviceName: String
+    - quantity: int
+    - unitBaseCost: double ' Base cost of the service at the time of billing
+    - policyAdjustedAmount: double ' Cost after billing policy applied for this item
+    + BillItem(service: Service, quantity: int, adjustedAmount: double)
+    + getItemId(): String
+    + getServiceId(): String
+    + getQuantity(): int
+    + getUnitBaseCost(): double
+    + getPolicyAdjustedAmount(): double
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Billing Policies - Strategy Pattern for extensibility and dynamic interchangeability
+' Design Practice: Classes should be loosely coupled to one another.
+' Design Practice: Refine associations to unidirectional as they are easy to build and maintain.
+' Design Practice: Avoid multi level inheritance (using interface here).
+' ----------------------------------------------------------------------------------------------------
+interface BillingPolicy {
+    ' Design Practice: Choose descriptive and meaningful names for methods.
+    + calculateAdjustedAmount(service: Service, patient: Patient): double
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    ' Policy logic uses patient's insurance details and external coverage parameters
+    + calculateAdjustedAmount(service: Service, patient: Patient): double
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    ' Policy logic uses fixed subsidized amounts
+    + calculateAdjustedAmount(service: Service, patient: Patient): double
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    ' Policy logic simply applies full cost
+    + calculateAdjustedAmount(service: Service, patient: Patient): double
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Orchestration / Context for Billing - Manages the overall billing process
+' Design Practice: A class should have a manageable set of responsibilities.
+' Design Practice: Maintain strict separation between patient information, pricing modules, and billing policies.
+' ----------------------------------------------------------------------------------------------------
+class BillingContext {
+    - policyFactory: BillingPolicyFactory ' Dependency for selecting/creating policy
+    + BillingContext(policyFactory: BillingPolicyFactory)
+    + generateDischargeBill(patient: Patient, services: List<Service>): Bill
+    - selectBillingPolicy(patient: Patient): BillingPolicy ' Helper method for policy determination
+}
+
+' Design Practice: To support dynamic interchangeability, a factory helps instantiate policies.
+class BillingPolicyFactory {
+    + getPolicy(patientCategory: PatientCategory): BillingPolicy
+}
+
+
+' ----------------------------------------------------------------------------------------------------
+' Relationships - Design Practice: Determine the multiplicity of relationship.
+' Design Practice: Relationship name or a role name is optional but explains why the relationship exist.
+' Design Practice: Role names are noun or noun phrases. Relationship names are verb or verb phrases.
+' ----------------------------------------------------------------------------------------------------
+
+' Patient and Bill
+Patient "1" -- "0..*" Bill : generates >
+
+' Bill and BillItem (Composition: Bill owns BillItems, BillItems cannot exist without a Bill)
+Bill "1" *-- "1..*" BillItem : contains
+
+' BillItem and Service (Association: A BillItem is for a specific Service)
+BillItem "1" -- "1" Service : appliesTo >
+
+' Patient and InsuranceDetails (Composition: InsuranceDetails is part of a Patient's profile)
+Patient "1" *-- "0..1" InsuranceDetails : has
+
+' Patient and PatientCategory (Association to enum)
+Patient "1" -- "1" PatientCategory : has
+
+' Bill and BillStatus (Association to enum)
+Bill "1" -- "1" BillStatus : has
+
+' BillingContext and BillingPolicy (Dependency/Usage: BillingContext uses a BillingPolicy to perform calculations)
+BillingContext .> BillingPolicy : uses >
+
+' BillingContext and BillingPolicyFactory (Association: BillingContext relies on the factory to get policies)
+BillingContext "1" -- "1" BillingPolicyFactory : createsPoliciesUsing >
+
+' BillingPolicyFactory and concrete BillingPolicies (Dependency: Factory creates instances of concrete policies)
+BillingPolicyFactory .> InsuranceBillingPolicy : creates >
+BillingPolicyFactory .> GovernmentBillingPolicy : creates >
+BillingPolicyFactory .> SelfPayBillingPolicy : creates >
+
+' ----------------------------------------------------------------------------------------------------
+' Inheritance and Implementation Relationships
+' ----------------------------------------------------------------------------------------------------
+Service <|-- MedicalProcedure
+Service <|-- Medication
+Service <|-- DiagnosticService
+Service <|-- Accommodation
+
+BillingPolicy <|-- InsuranceBillingPolicy
+BillingPolicy <|-- GovernmentBillingPolicy
+BillingPolicy <|-- SelfPayBillingPolicy
+
+' ----------------------------------------------------------------------------------------------------
+' Explanatory Notes - Design Practice: Add explanatory notes.
+' ----------------------------------------------------------------------------------------------------
+note "Strategy Pattern for flexible and dynamically interchangeable billing rules, supporting extensibility without structural redesign. New policies can be added by implementing BillingPolicy." as N1
+BillingPolicy <|-- InsuranceBillingPolicy
+BillingPolicy <|-- GovernmentBillingPolicy
+BillingPolicy <|-- SelfPayBillingPolicy
+N1 .u. BillingPolicy
+
+note "Service hierarchy captures heterogeneous cost sources (medical procedures, medications, diagnostic services, accommodation charges), each with a base cost." as N2
+Service <|-- MedicalProcedure
+Service <|-- Medication
+Service <|-- DiagnosticService
+Service <|-- Accommodation
+N2 .u. Service
+
+note "Strict separation of concerns:\n- Patient Information (Patient, InsuranceDetails)\n- Pricing Modules (Service hierarchy)\n- Billing Policies (BillingPolicy hierarchy)\n- Bill Orchestration (BillingContext)\nThis enhances maintainability and extensibility." as N3
+N3 .d. BillingContext
+
+note "BillItem acts as an association class, capturing details of a specific service on a bill after policy application, including quantity and adjusted cost." as N4
+N4 .u. BillItem
+
+@enduml
+```

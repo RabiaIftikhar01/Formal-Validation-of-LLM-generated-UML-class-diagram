@@ -1,0 +1,239 @@
+```plantuml
+@startuml
+
+' Global styling for consistency and readability
+skinparam classAttributeIconSize 0 ' Hide attribute icons for a cleaner look
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor White
+  ArrowColor Black
+  BorderColor Black
+  FontColor Black
+  BorderThickness 1
+}
+skinparam package {
+  BackgroundColor LightGray
+  BorderColor DarkGray
+  FontColor Black
+}
+
+' Title and general notes for context
+title Hospital Billing System Class Diagram
+
+note "This diagram models a hospital billing system focusing on extensibility for pricing and billing policies,\nand clear separation of concerns, as per design principles." as N0
+
+' -----------------------------------------------------------
+' Package: Patient Information
+' Responsible for managing patient demographics and insurance details.
+' -----------------------------------------------------------
+package "Patient Information" {
+  class Patient {
+    - patientId: String
+    - name: String
+    - dob: Date
+    - address: String
+    - category: PatientCategory <<enum>>
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getCategory(): PatientCategory
+    + getInsuranceDetails(): InsuranceDetails
+  }
+
+  enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+  }
+
+  class InsuranceDetails {
+    - policyNumber: String
+    - providerName: String
+    - coverageType: String
+    - deductible: BigDecimal
+    - coPayPercentage: BigDecimal
+    - coverageLimit: BigDecimal
+    --
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + calculateCoverage(itemCost: BigDecimal): BigDecimal
+  }
+
+  Patient "1" -- "0..1" InsuranceDetails : has >
+}
+
+' -----------------------------------------------------------
+' Package: Hospital Services
+' Manages the services and treatments provided during a patient's stay.
+' -----------------------------------------------------------
+package "Hospital Services" {
+  class HospitalStay {
+    - stayId: String
+    - admissionDate: Date
+    - dischargeDate: Date
+    - type: StayType <<enum>>
+    --
+    + addBillableItem(item: BillableItem)
+    + removeBillableItem(item: BillableItem)
+    + getBillableItems(): List<BillableItem>
+    + getStayDurationDays(): int
+  }
+
+  enum StayType {
+    IN_PATIENT
+    OUT_PATIENT
+  }
+
+  abstract class BillableItem {
+    - itemId: String
+    - name: String
+    - description: String
+    - baseCost: BigDecimal
+    --
+    + getName(): String
+    + getBaseCost(): BigDecimal
+    + getCalculatedCost(): BigDecimal
+  }
+
+  class MedicalProcedure extends BillableItem {
+    - procedureCode: String
+  }
+
+  class Medication extends BillableItem {
+    - drugName: String
+    - dosage: String
+  }
+
+  class DiagnosticService extends BillableItem {
+    - testName: String
+  }
+
+  class AccommodationCharge extends BillableItem {
+    - roomType: String
+    - dailyRate: BigDecimal
+  }
+
+  HospitalStay "1" o-- "*" BillableItem : includes >
+}
+
+' -----------------------------------------------------------
+' Package: Pricing Module
+' Implements the Strategy pattern for different pricing rules for billable items.
+' -----------------------------------------------------------
+package "Pricing Module" {
+  interface PricingRule <<Strategy>> {
+    + applyPricing(baseCost: BigDecimal): BigDecimal
+  }
+
+  class StandardPricingRule implements PricingRule {
+    + applyPricing(baseCost: BigDecimal): BigDecimal
+  }
+
+  class DiscountPricingRule implements PricingRule {
+    - discountPercentage: BigDecimal
+    --
+    + applyPricing(baseCost: BigDecimal): BigDecimal
+  }
+
+  class TieredPricingRule implements PricingRule {
+    - tiers: Map<BigDecimal, BigDecimal>
+    --
+    + applyPricing(baseCost: BigDecimal): BigDecimal
+  }
+
+  BillableItem "1" -- "1" PricingRule : uses >
+}
+
+' -----------------------------------------------------------
+' Package: Billing Policies
+' Implements the Strategy pattern for applying different billing policies based on patient category.
+' -----------------------------------------------------------
+package "Billing Policies" {
+  interface BillingPolicy <<Strategy>> {
+    + calculatePatientCharge(patient: Patient, item: BillableItem): BigDecimal
+  }
+
+  class InsuredBillingPolicy implements BillingPolicy {
+    + calculatePatientCharge(patient: Patient, item: BillableItem): BigDecimal
+  }
+
+  class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidyRate: BigDecimal
+    --
+    + calculatePatientCharge(patient: Patient, item: BillableItem): BigDecimal
+  }
+
+  class SelfFundedBillingPolicy implements BillingPolicy {
+    + calculatePatientCharge(patient: Patient, item: BillableItem): BigDecimal
+  }
+}
+
+' -----------------------------------------------------------
+' Package: Billing & Invoice
+' Orchestrates the billing process and generates patient invoices.
+' -----------------------------------------------------------
+package "Billing & Invoice" {
+  class BillingService {
+    - currentPolicy: BillingPolicy
+    --
+    + determineBillingPolicy(patient: Patient): BillingPolicy
+    + generateInvoice(patient: Patient, stay: HospitalStay): Invoice
+    + setBillingPolicy(policy: BillingPolicy)
+  }
+
+  class Invoice {
+    - invoiceId: String
+    - issueDate: Date
+    - totalAmount: BigDecimal
+    - status: InvoiceStatus <<enum>>
+    --
+    + addItem(item: InvoiceItem)
+    + calculateTotal(): void
+    + getInvoiceDetails(): String
+  }
+
+  enum InvoiceStatus {
+    DRAFT
+    PENDING_PAYMENT
+    PAID
+    CANCELLED
+  }
+
+  class InvoiceItem {
+    - quantity: int
+    - chargedAmount: BigDecimal
+    --
+    + getChargedAmount(): BigDecimal
+    + getQuantity(): int
+  }
+
+  Patient "1" -- "0..*" Invoice : generates >
+  Invoice "1" o-- "*" InvoiceItem : includes >
+  InvoiceItem "1" -- "1" BillableItem : refersTo >
+
+  BillingService "1" -- "1" BillingPolicy : uses >
+  BillingService "1" -- "1" Patient : operatesOn >
+  BillingService "1" -- "1" HospitalStay : processes >
+  BillingService "1" -- "0..1" Invoice : creates >
+}
+
+' -----------------------------------------------------------
+' Cross-Module Relationships
+' -----------------------------------------------------------
+Patient "1" -- "0..*" HospitalStay : has >
+
+' Notes for explaining key design decisions and patterns
+note "Strategy Pattern: 'BillingPolicy' allows dynamic interchangeability of billing logic at runtime.\nNew policies can be added without modifying existing code, ensuring extensibility for regulatory changes." as N_BillingPolicyStrategy
+BillingPolicy .. N_BillingPolicyStrategy
+
+note "Strategy Pattern: 'PricingRule' allows different pricing mechanisms for various billable items.\nNew pricing rules can be introduced independently." as N_PricingRuleStrategy
+PricingRule .. N_PricingRuleStrategy
+
+note "The use of packages enforces strict separation between patient information, pricing modules,\nand billing policies, enhancing maintainability and reducing coupling." as N_SeparationOfConcerns
+package "Patient Information" .. N_SeparationOfConcerns
+package "Pricing Module" .. N_SeparationOfConcerns
+package "Billing Policies" .. N_SeparationOfConcerns
+
+@enduml
+```

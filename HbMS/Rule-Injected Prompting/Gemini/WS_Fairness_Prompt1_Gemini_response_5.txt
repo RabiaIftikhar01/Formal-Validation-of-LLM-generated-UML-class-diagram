@@ -1,0 +1,173 @@
+```plantuml
+@startuml
+' Professional Software Engineer's UML Class Diagram for Hospital Billing System
+' Adheres to good design practices and instructions provided.
+
+' Design Principles Applied:
+' - Simplicity and clarity: Focuses on core billing logic, avoiding over-engineering.
+' - Naming Conventions: Singular nouns, PascalCase for classes, descriptive names.
+' - Responsibility-driven design: Classes have clear, manageable responsibilities.
+' - Strategy Pattern: Implemented for Billing Policies and Pricing Rules for runtime interchangeability and extensibility.
+' - Loose Coupling: Achieved through interfaces (BillingPolicy, PricingRule) and orchestration via BillingService.
+' - Unidirectional Associations: Favored where appropriate to reduce dependencies.
+' - Multiplicity: Explicitly defined to reflect business rules.
+' - No multi-level inheritance.
+' - Explanatory notes: Added to clarify design choices.
+
+' Define a common type for money to enhance readability and intent
+!define Money float
+
+' --------------------------------------------------------------------------------
+' Core Domain Classes
+' --------------------------------------------------------------------------------
+
+class Patient {
+    - patientId: String
+    - name: String
+    - address: String
+    - patientType: String ' e.g., "Insured", "Government", "Self-Pay"
+    -- getPatientType(): String
+    -- getInsuranceDetails(): InsuranceDetails
+}
+
+class InsuranceDetails {
+    - policyNumber: String
+    - providerName: String
+    - coverageType: String
+    -- getPolicyNumber(): String
+}
+
+class Bill {
+    - billId: String
+    - billingDate: Date
+    - totalChargesAmount: Money ' Sum of all charge items after pricing rules
+    - patientPortion: Money
+    - thirdPartyPortion: Money ' e.g., Insurance, Government
+    - status: String ' e.g., "Generated", "Pending Payment", "Paid"
+    -- calculateTotalChargesAmount(): void
+    -- applyBillingPolicy(policy: BillingPolicy, patient: Patient): void
+    + getBillDetails(): String
+}
+
+class ChargeItem {
+    - itemId: String
+    - description: String
+    - quantity: int
+    - baseUnitCost: Money ' Base cost before any pricing rules
+    - calculatedAmount: Money ' Final amount after applying its specific PricingRule
+    -- applyPricingRule(): void
+    + getCalculatedAmount(): Money
+}
+
+' --------------------------------------------------------------------------------
+' Strategy Pattern: Pricing Rules (for diverse charge sources)
+' "Charges originate from diverse sources... each governed by independent pricing rules."
+' --------------------------------------------------------------------------------
+
+abstract class PricingRule {
+    - ruleId: String
+    - name: String
+    - effectiveDate: Date
+    + {abstract} calculatePrice(item: ChargeItem): Money
+}
+
+class ProcedurePricingRule extends PricingRule {
+    + calculatePrice(item: ChargeItem): Money
+}
+
+class MedicationPricingRule extends PricingRule {
+    + calculatePrice(item: ChargeItem): Money
+}
+
+class DiagnosticPricingRule extends PricingRule {
+    + calculatePrice(item: ChargeItem): Money
+}
+
+class RoomPricingRule extends PricingRule {
+    + calculatePrice(item: ChargeItem): Money
+}
+
+' --------------------------------------------------------------------------------
+' Strategy Pattern: Billing Policies (for patient-specific billing logic)
+' "Billing logic is governed by configurable policies that must remain interchangeable at runtime."
+' --------------------------------------------------------------------------------
+
+interface BillingPolicy {
+    + calculatePatientPortion(bill: Bill, patient: Patient): Money
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    - coverageRules: String ' Simplified, could be a complex object or logic
+    - reimbursementLimits: Money
+    - coPaymentStructure: Money
+    + calculatePatientPortion(bill: Bill, patient: Patient): Money
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidizedRates: Money
+    + calculatePatientPortion(bill: Bill, patient: Patient): Money
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculatePatientPortion(bill: Bill, patient: Patient): Money
+}
+
+' --------------------------------------------------------------------------------
+' Service Layer: Orchestrates the billing process
+' --------------------------------------------------------------------------------
+
+class BillingService {
+    -- determineBillingPolicy(patient: Patient): BillingPolicy
+    -- applyPricingToCharges(charges: List<ChargeItem>): void
+    + generateDischargeBill(patient: Patient, charges: List<ChargeItem>): Bill
+}
+
+' --------------------------------------------------------------------------------
+' Relationships
+' --------------------------------------------------------------------------------
+
+' Patient and their details
+Patient "1" --> "0..1" InsuranceDetails : "has" >
+Patient "1" "billedFor" -- "0..*" Bill : "owns" >
+
+' Bill and its components
+Bill "1" *-- "1..*" ChargeItem : "includes" >
+
+' ChargeItem and its pricing logic
+ChargeItem "1" "governedBy" --> "1" PricingRule : "applies" >
+
+' PricingRule hierarchy (Generalization)
+PricingRule <|-- ProcedurePricingRule
+PricingRule <|-- MedicationPricingRule
+PricingRule <|-- DiagnosticPricingRule
+PricingRule <|-- RoomPricingRule
+
+' BillingPolicy hierarchy (Realization)
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' BillingService orchestration
+BillingService "1" "determines & uses" --> "1" BillingPolicy
+BillingService "1" "processes for" --> "1" Patient
+BillingService "1" "collects & processes" --> "0..*" ChargeItem
+BillingService "1" "creates" --> "1" Bill
+
+' --------------------------------------------------------------------------------
+' Explanatory Notes
+' --------------------------------------------------------------------------------
+
+note "Strategy Pattern: Allows billing logic to be swapped at runtime based on patient type. Ensures extensibility for new policy types." as BillingPolicyStrategyNote
+BillingPolicyStrategyNote .. BillingPolicy
+
+note "Strategy Pattern: Enables independent pricing logic for different types of charges (procedures, medications, etc.). Facilitates updates to pricing rules without system redesign." as PricingRuleStrategyNote
+PricingRuleStrategyNote .. PricingRule
+
+note "Represents any billable item or service provided during a hospital stay (e.g., a specific medication, a diagnostic test, a day in a room, a surgical procedure)." as ChargeItemExplanationNote
+ChargeItemExplanationNote .. ChargeItem
+
+note "The BillingService acts as an orchestrator, determining the correct policy, applying pricing, and generating the final bill." as BillingServiceExplanationNote
+BillingServiceExplanationNote .. BillingService
+
+@enduml
+```

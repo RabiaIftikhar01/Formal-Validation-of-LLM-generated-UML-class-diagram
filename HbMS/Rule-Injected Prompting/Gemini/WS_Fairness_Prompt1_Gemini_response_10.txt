@@ -1,0 +1,186 @@
+```plantuml
+@startuml
+' Global settings for readability and consistency
+skinparam classAttributeIconSize 0 ' Hide attribute icons for a cleaner look
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 14
+skinparam noteBackgroundColor #FFC
+skinparam noteBorderColor #AA3
+skinparam linetype ortho ' Use orthogonal lines for cleaner routing
+
+' Title and overall diagram purpose
+title Hospital Discharge Billing System Class Diagram
+
+note "This diagram models the core billing process, leveraging the Strategy pattern\nfor flexible billing policies and a composite-like structure for diverse charge items.\nThis design ensures high extensibility and maintainability, allowing easy\nadaptation to changing regulations and pricing rules without structural redesign." as N1
+
+' --- Value Object (Conceptual) ---
+' Money is treated as a value object, representing monetary amounts.
+' In a real implementation, this would be an immutable class to prevent errors.
+' For diagram simplicity, its internal structure is not detailed as a separate class.
+' Attributes using 'Money' type imply this value object.
+
+' --- I. Core Billing Process Classes ---
+
+class Patient {
+  -patientId: String
+  -name: String
+  -contactInfo: String
+  --
+  +Patient(patientId: String, name: String)
+  +getPatientId(): String
+  +getName(): String
+  +getCoverageDetails(): CoverageDetails
+  +setCoverageDetails(details: CoverageDetails): void
+}
+
+class CoverageDetails {
+  -coverageType: String ' e.g., "Insurance", "Government", "Self-Pay"
+  -policyNumber: String
+  -providerName: String
+  -deductibleAmount: Money
+  -coPaymentRate: Decimal
+  -subsidizedProgramId: String
+  --
+  +CoverageDetails(type: String, policyNum: String, ...)
+  +getCoverageType(): String
+  +isInsured(): Boolean
+  +isGovernmentCovered(): Boolean
+  +isSelfPay(): Boolean
+}
+
+class Bill {
+  -billId: String
+  -billingDate: Date
+  -totalAmount: Money
+  --
+  +Bill(billId: String, patient: Patient, billingDate: Date)
+  +addChargeItem(item: ChargeItem): void
+  +calculateRawTotalAmount(): Money ' Sums up costs of all charge items before policy application
+  +getBillId(): String
+  +getPatient(): Patient
+  +getChargeItems(): List<ChargeItem>
+  +setTotalAmount(amount: Money): void
+}
+
+class BillingService {
+  --
+  +BillingService(policyFactory: BillingPolicyFactory)
+  +generateDischargeBill(patient: Patient, initialChargeItems: List<ChargeItem>): Bill
+}
+
+' --- II. Billing Policy Strategy Pattern ---
+
+interface BillingPolicy {
+  +calculateFinalBill(bill: Bill, coverage: CoverageDetails): Money
+}
+
+class InsuranceBillingPolicy {
+  -coverageRules: Map<String, Object> ' e.g., procedure-specific limits, eligibility
+  -reimbursementLimits: Map<String, Money>
+  -coPaymentStructures: Map<String, Decimal>
+  --
+  +InsuranceBillingPolicy(rules: Map, limits: Map, copays: Map)
+  +calculateFinalBill(bill: Bill, coverage: CoverageDetails): Money
+}
+
+class GovernmentBillingPolicy {
+  -subsidizedRates: Map<String, Money> ' e.g., fixed rates for specific procedures/meds
+  --
+  +GovernmentBillingPolicy(rates: Map)
+  +calculateFinalBill(bill: Bill, coverage: CoverageDetails): Money
+}
+
+class SelfPayBillingPolicy {
+  --
+  +SelfPayBillingPolicy()
+  +calculateFinalBill(bill: Bill, coverage: CoverageDetails): Money
+}
+
+class BillingPolicyFactory {
+  --
+  +getPolicy(coverage: CoverageDetails): BillingPolicy {static}
+}
+
+' --- III. Charge Items Hierarchy (Composite-like structure) ---
+
+abstract class ChargeItem {
+  -itemId: String
+  -description: String
+  -quantity: Integer
+  -unitPrice: Money
+  --
+  +ChargeItem(itemId: String, description: String, quantity: Integer, unitPrice: Money)
+  +getRawCost(): Money {abstract} ' Calculates the cost based on quantity and unit price/specific rules
+  +getDescription(): String
+  +getQuantity(): Integer
+  +getUnitPrice(): Money
+}
+
+class ProcedureCharge {
+  -procedureCode: String
+  -physicianFee: Money
+  -facilityFee: Money
+  --
+  +ProcedureCharge(itemId: String, desc: String, qty: Integer, unitPrice: Money, code: String)
+  +getRawCost(): Money
+}
+
+class MedicationCharge {
+  -medicationName: String
+  -dosage: String
+  --
+  +MedicationCharge(itemId: String, desc: String, qty: Integer, unitPrice: Money, medName: String)
+  +getRawCost(): Money
+}
+
+class DiagnosticTestCharge {
+  -testCode: String
+  -laboratoryFee: Money
+  --
+  +DiagnosticTestCharge(itemId: String, desc: String, qty: Integer, unitPrice: Money, code: String)
+  +getRawCost(): Money
+}
+
+class RoomCharge {
+  -roomType: String
+  -numberOfNights: Integer
+  --
+  +RoomCharge(itemId: String, desc: String, qty: Integer, unitPrice: Money, roomType: String, nights: Integer)
+  +getRawCost(): Money
+}
+
+
+' --- Relationships ---
+
+' Patient and Coverage Details
+Patient "1" --> "0..1" CoverageDetails : has
+
+' Bill and its components
+Patient "1" --> "0..*" Bill : generates
+Bill "1" o-- "0..*" ChargeItem : includes ' Composition: ChargeItems are part of a Bill
+
+' Billing Service orchestration
+BillingService "1" --> "1" BillingPolicyFactory : uses
+BillingService ..> Bill : <<creates>> ' BillingService creates Bill instances
+BillingService ..> Patient : <<processes>> ' BillingService takes Patient as input
+BillingService ..> ChargeItem : <<consumes>> ' BillingService takes ChargeItem list as input
+
+' Billing Policy Strategy Pattern relationships
+BillingPolicy <|.. InsuranceBillingPolicy : <<implements>>
+BillingPolicy <|.. GovernmentBillingPolicy : <<implements>>
+BillingPolicy <|.. SelfPayBillingPolicy : <<implements>>
+BillingPolicyFactory ..> BillingPolicy : <<creates>> ' Factory creates instances of BillingPolicy
+
+' Charge Item Hierarchy relationships
+ChargeItem <|-- ProcedureCharge
+ChargeItem <|-- MedicationCharge
+ChargeItem <|-- DiagnosticTestCharge
+ChargeItem <|-- RoomCharge
+
+' --- Explanatory Notes ---
+note bottom of BillingService : Orchestrates bill generation:\n1. Gathers patient & charge info.\n2. Determines policy via factory.\n3. Applies policy to calculate final amount.
+note top of BillingPolicy : Strategy Interface:\nDefines contract for applying different\nbilling rules. Enables runtime interchangeability.
+note bottom of ChargeItem : Abstract base for all chargeable items.\nEach concrete subclass encapsulates its specific pricing logic.
+
+@enduml
+```

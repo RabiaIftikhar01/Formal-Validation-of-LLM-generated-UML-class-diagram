@@ -1,0 +1,205 @@
+```plantuml
+@startuml
+' Global settings for consistency and readability
+hide empty members
+skinparam class {
+  ArrowColor #2688d4
+  BorderColor #2688d4
+  BackgroundColor white
+  FontColor black
+}
+skinparam note {
+  BorderColor #2688d4
+  BackgroundColor #eef
+  FontColor black
+}
+skinparam interface {
+  ArrowColor #2688d4
+  BorderColor #2688d4
+  BackgroundColor white
+  FontColor black
+}
+skinparam abstract {
+  ArrowColor #2688d4
+  BorderColor #2688d4
+  BackgroundColor white
+  FontColor black
+}
+
+title Hospital Billing System - Class Diagram
+
+' Enums for clear categorization
+enum PatientCategory {
+  INSURED
+  GOVERNMENT_PROGRAM
+  SELF_PAY
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+' Core Entities - Patient Information Module
+class Patient {
+  - patientId: String
+  - name: String
+  - dateOfBirth: Date
+  - patientCategory: PatientCategory
+  - insurancePolicy: InsurancePolicy [0..1]
+  + getPatientId(): String
+  + getName(): String
+  + getPatientCategory(): PatientCategory
+  + getInsurancePolicy(): InsurancePolicy
+}
+
+class InsurancePolicy {
+  - policyNumber: String
+  - providerName: String
+  - deductible: double
+  - coPayPercentage: double
+  - maxCoverage: double
+  + getDeductible(): double
+  + getCoPayPercentage(): double
+  + applyCoverage(cost: double): double
+}
+
+' Pricing Module - Abstract Cost Item and its concrete types
+abstract class CostItem {
+  - itemId: String
+  - description: String
+  - basePrice: double
+  + getBasePrice(): double
+}
+
+class MedicalProcedure extends CostItem {
+  - procedureCode: String
+  + getBasePrice(): double
+}
+
+class Medication extends CostItem {
+  - drugId: String
+  - dosage: String
+  + getBasePrice(): double
+}
+
+class DiagnosticService extends CostItem {
+  - serviceCode: String
+  + getBasePrice(): double
+}
+
+class AccommodationCharge extends CostItem {
+  - roomType: String
+  - dailyRate: double
+  - numberOfDays: int
+  + getBasePrice(): double
+}
+
+' Invoice Module - Invoice and its line items
+class Invoice {
+  - invoiceId: String
+  - issueDate: Date
+  - dueDate: Date
+  - grossAmount: double
+  - patientResponsibility: double
+  - status: InvoiceStatus
+  - patient: Patient
+  + addLineItem(item: CostItem, quantity: int): void
+  + calculateGrossAmount(): void
+  + getGrossAmount(): double
+  + setPatientResponsibility(amount: double): void
+  + getPatientResponsibility(): double
+}
+
+' Association class to capture specific details for each CostItem on an Invoice
+class InvoiceLineItem {
+  - quantity: int
+  - unitPrice: double
+  - discountedAmount: double
+  - finalLineTotal: double
+  + calculateFinalLineTotal(): void
+  + getUnitPrice(): double
+}
+
+' Billing Policy Module - Strategy Pattern for dynamic billing logic
+interface BillingPolicy {
+  + applyPolicy(invoice: Invoice, patient: Patient): void
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+  + applyPolicy(invoice: Invoice, patient: Patient): void
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+  - subsidyRate: double
+  + applyPolicy(invoice: Invoice, patient: Patient): void
+}
+
+class InsuredBillingPolicy implements BillingPolicy {
+  + applyPolicy(invoice: Invoice, patient: Patient): void
+}
+
+' Orchestration Class - Responsible for invoice generation and policy application
+class InvoiceProcessor {
+  - billingPolicy: BillingPolicy
+  + selectBillingPolicy(patientCategory: PatientCategory): void
+  + processInvoice(invoice: Invoice, patient: Patient, costItems: List<CostItem>): void
+}
+
+' Relationships
+
+' Patient and Insurance
+Patient "1" --> "0..1" InsurancePolicy : has
+
+' Invoice and its components
+Invoice "1" *-- "1" Patient : isFor >
+Invoice "1" *-- "1..*" InvoiceLineItem : contains >
+InvoiceLineItem "1" --> "1" CostItem : references >
+
+' Cost Item Hierarchy
+CostItem <|-- MedicalProcedure
+CostItem <|-- Medication
+CostItem <|-- DiagnosticService
+CostItem <|-- AccommodationCharge
+
+' Billing Policy Strategy Pattern
+BillingPolicy <|.. SelfPayBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. InsuredBillingPolicy
+
+' Invoice Processor and Billing Policy interaction
+InvoiceProcessor "1" o-- "1" BillingPolicy : uses >
+
+' Notes for additional clarity
+note right of InvoiceProcessor
+  Orchestrates invoice creation,
+  selects the appropriate BillingPolicy
+  based on PatientCategory, and
+  applies it to determine patient's
+  financial responsibility.
+end note
+
+note right of BillingPolicy
+  Strategy Pattern:
+  Encapsulates varying
+  billing calculation logic,
+  allowing dynamic interchange
+  without structural redesign.
+end note
+
+note right of InvoiceLineItem
+  Association class to store
+  item-specific details (quantity,
+  unit price, discounts) for a
+  CostItem within an Invoice.
+end note
+
+note left of Patient
+  Represents a patient's
+  demographic and
+  insurance information.
+end note
+
+@enduml
+```

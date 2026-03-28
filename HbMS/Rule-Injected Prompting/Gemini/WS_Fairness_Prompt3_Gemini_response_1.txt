@@ -1,0 +1,281 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+title Hospital Discharge Billing System - Class Diagram
+
+' Consistent Naming Convention: PascalCase for classes, camelCase for attributes/methods.
+' Access Specifiers: '+' for public, '-' for private.
+' Good Design Practices applied throughout.
+
+' Define custom colors for better readability and clear separation of concerns
+skinparam class {
+    BackgroundColor White
+    BorderColor #2F4F4F
+    ArrowColor #2F4F4F
+    FontColor #2F4F4F
+}
+skinparam interface {
+    BackgroundColor LightYellow
+    BorderColor #DAA520
+    FontColor #DAA520
+}
+skinparam abstract {
+    BackgroundColor LightBlue
+    BorderColor #4682B4
+    FontColor #4682B4
+}
+skinparam enum {
+    BackgroundColor LightGreen
+    BorderColor #3CB371
+    FontColor #3CB371
+}
+skinparam note {
+    BackgroundColor #FFFACD
+    BorderColor #DAA520
+    FontColor #2F4F4F
+}
+
+' -----------------------------------
+' Patient Information and Categorization
+' Separates patient demographics from billing-specific patient types.
+' -----------------------------------
+abstract class PatientType {
+    + getBillingPolicy(): BillingPolicy <<abstract>>
+}
+
+class Patient {
+    - patientId: String
+    - name: String
+    - admissionDate: Date
+    - dischargeDate: Date
+    --
+    + addServiceItem(item: ServiceItem): void
+    + getServiceItems(): List<ServiceItem>
+    + getPatientType(): PatientType
+}
+
+class InsuredPatientType {
+    - insuranceDetails: InsuranceDetails
+    --
+    + getBillingPolicy(): BillingPolicy
+}
+
+class GovernmentPatientType {
+    - programDetails: GovernmentProgramDetails
+    --
+    + getBillingPolicy(): BillingPolicy
+}
+
+class SelfPayPatientType {
+    + getBillingPolicy(): BillingPolicy
+}
+
+Patient "1" *-- "1" PatientType : has >
+PatientType <|-- InsuredPatientType
+PatientType <|-- GovernmentPatientType
+PatientType <|-- SelfPayPatientType
+
+InsuredPatientType "1" *-- "1" InsuranceDetails : includes >
+GovernmentPatientType "1" *-- "1" GovernmentProgramDetails : includes >
+
+class InsuranceDetails {
+    - providerName: String
+    - policyNumber: String
+    - coverageParameters: Map<String, String>
+    - reimbursementThresholds: Map<String, Double>
+    - coPayArrangement: Map<String, Double>
+    --
+    + getCoverageParameter(key: String): String
+    + getReimbursementThreshold(key: String): Double
+    + getCoPayArrangement(key: String): Double
+}
+
+class GovernmentProgramDetails {
+    - programName: String
+    - subsidyValues: Map<String, Double>
+    --
+    + getSubsidyValue(key: String): Double
+}
+
+' -----------------------------------
+' Service Items and Pricing Module
+' Strict separation of pricing logic using Strategy Pattern.
+' -----------------------------------
+abstract class ServiceItem {
+    - serviceId: String
+    - description: String
+    - datePerformed: Date
+    --
+    + getBaseCost(): double <<abstract>>
+}
+
+class MedicalProcedure {
+    - procedureCode: String
+    - durationMinutes: int
+    --
+    + getBaseCost(): double
+}
+
+class Medication {
+    - drugName: String
+    - dosage: String
+    - quantity: int
+    --
+    + getBaseCost(): double
+}
+
+class DiagnosticService {
+    - testType: String
+    - resultStatus: String
+    --
+    + getBaseCost(): double
+}
+
+class AccommodationCharge {
+    - roomType: String
+    - numDays: int
+    --
+    + getBaseCost(): double
+}
+
+ServiceItem <|-- MedicalProcedure
+ServiceItem <|-- Medication
+ServiceItem <|-- DiagnosticService
+ServiceItem <|-- AccommodationCharge
+
+interface PricingStrategy {
+    + calculateBasePrice(item: ServiceItem): double
+}
+
+class ProcedurePricingStrategy {
+    + calculateBasePrice(item: ServiceItem): double
+}
+
+class MedicationPricingStrategy {
+    + calculateBasePrice(item: ServiceItem): double
+}
+
+class DiagnosticPricingStrategy {
+    + calculateBasePrice(item: ServiceItem): double
+}
+
+class AccommodationPricingStrategy {
+    + calculateBasePrice(item: ServiceItem): double
+}
+
+PricingStrategy <|.. ProcedurePricingStrategy
+PricingStrategy <|.. MedicationPricingStrategy
+PricingStrategy <|.. DiagnosticPricingStrategy
+PricingStrategy <|.. AccommodationPricingStrategy
+
+class PricingService {
+    - strategies: Map<Class<? extends ServiceItem>, PricingStrategy>
+    --
+    + getPrice(item: ServiceItem): double
+    + registerStrategy(itemType: Class<? extends ServiceItem>, strategy: PricingStrategy): void
+}
+
+PricingService "1" o-- "*" PricingStrategy : manages >
+ServiceItem ..> PricingService : uses for cost calculation
+
+' -----------------------------------
+' Billing Policies Module
+' Enables dynamic interchangeability of billing logic (Strategy Pattern).
+' -----------------------------------
+interface BillingPolicy {
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class InsuredBillingPolicy {
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class GovernmentBeneficiaryBillingPolicy {
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class SelfPayBillingPolicy {
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+BillingPolicy <|.. InsuredBillingPolicy
+BillingPolicy <|.. GovernmentBeneficiaryBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+PatientType ..> BillingPolicy : determines
+
+' -----------------------------------
+' Bill and Billing Engine
+' Orchestrates the bill generation process.
+' -----------------------------------
+class Bill {
+    - billId: String
+    - issueDate: Date
+    - totalAmount: double
+    - patientPortion: double
+    - status: BillStatus
+    --
+    + addBillItem(item: BillItem): void
+    + getBillItems(): List<BillItem>
+    + calculateTotals(): void
+}
+
+enum BillStatus {
+    PENDING
+    FINALIZED
+    PAID
+    PARTIAL_PAID
+    CANCELLED
+}
+
+class BillItem {
+    - itemId: String
+    - baseCost: double
+    - adjustedCost: double
+    - patientResponsibility: double
+    --
+    + getPatientResponsibility(): double
+    + setAdjustedCost(cost: double): void
+    + setPatientResponsibility(cost: double): void
+}
+
+Bill "1" *-- "*" BillItem : contains >
+BillItem "1" *-- "1" ServiceItem : wraps >
+
+class BillingEngine {
+    - pricingService: PricingService
+    --
+    + generateDischargeBill(patient: Patient): Bill
+}
+
+Patient "1" --> "0..*" Bill : generates for >
+BillingEngine "1" --> "1" PricingService : uses >
+BillingEngine "1" --> "1" Patient : processes >
+BillingEngine "1" --> "1" Bill : creates >
+BillingEngine .> BillingPolicy : applies (determined by PatientType)
+
+' Explanatory Notes for complex sections or additional information
+note left of PatientType : Abstract base for patient categories.
+note right of InsuranceDetails : Holds configurable parameters for insured patients,
+allowing dynamic updates without code changes.
+note right of PricingService : Orchestrates pricing by dispatching to specific
+pricing strategies, ensuring extensibility for new service types.
+note right of BillingPolicy : Strategy interface for different billing calculations,
+enabling dynamic policy interchangeability at runtime.
+note top of BillingEngine : Orchestrates the bill generation process,
+applying pricing and the correct billing policy.
+note bottom of ServiceItem : Abstract base for all chargeable services.
+Concrete types hold specific details and implement base cost calculation.
+note bottom of BillItem : Represents a single line item on a bill,
+tracking base cost and policy-adjusted costs for patient responsibility.
+note "This design ensures strict separation between patient information,
+pricing modules, and billing policies, making the system extensible
+and maintainable for future regulatory and contract changes." as DesignNote
+DesignNote .. (BillingEngine)
+DesignNote .. (PricingService)
+DesignNote .. (BillingPolicy)
+DesignNote .. (Patient)
+
+@enduml
+```

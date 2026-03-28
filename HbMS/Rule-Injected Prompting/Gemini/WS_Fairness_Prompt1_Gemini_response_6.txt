@@ -1,0 +1,174 @@
+@startuml
+' Professional UML Class Diagram for Hospital Billing System
+' Adhering to good design practices and instructions provided.
+
+' Naming convention: PascalCase for classes, camelCase for attributes/methods.
+' Access specifiers: + public, - private, # protected.
+
+' --- Explanatory Notes (Principle 25) ---
+note "The system employs the Strategy design pattern for BillingPolicy, \nallowing runtime interchangeability and extensibility of billing logic." as N1
+note "Strong separation is maintained between patient data, charge components, and billing policies, \nensuring modularity and ease of maintenance as regulatory requirements evolve." as N2
+
+' --- Patient and Related Information ---
+class Patient {
+    - String patientId
+    - String name
+    - Date dateOfBirth
+    - String address
+    - PatientType patientType
+    --
+    + getPatientId(): String
+    + getPatientType(): PatientType
+    + getInsuranceCoverage(): InsuranceCoverage
+    + isGovernmentProgramEnrolled(): boolean
+}
+
+enum PatientType {
+    IN_PATIENT
+    OUT_PATIENT
+}
+
+class InsuranceCoverage {
+    - String policyNumber
+    - String providerName
+    - Map<String, String> coverageRules // Configurable rules, e.g., "deductible", "coPayPercentage"
+    - Map<String, BigDecimal> reimbursementLimits // e.g., "procedureMax", "medicationMax"
+    --
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + getRule(String ruleName): String
+    + getLimit(String limitName): BigDecimal
+    + applyCoverage(BigDecimal originalAmount): BigDecimal
+}
+
+Patient "1" --> "0..1" InsuranceCoverage : has >
+note on link: A patient may or may not have insurance coverage. (Principle 15)
+
+' --- Charge Items (Components of a Bill) ---
+abstract class ChargeItem {
+    - String chargeId
+    - String description
+    - BigDecimal baseAmount
+    - int quantity
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+class ProcedureCharge extends ChargeItem {
+    - String procedureCode
+    - String procedureName
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+class MedicationCharge extends ChargeItem {
+    - String drugName
+    - String dosage
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+class DiagnosticTestCharge extends ChargeItem {
+    - String testCode
+    - String testName
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+class RoomCharge extends ChargeItem {
+    - String roomNumber
+    - int numberOfNights
+    - RoomType roomType
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+enum RoomType {
+    GENERAL_WARD
+    PRIVATE_ROOM
+    ICU
+}
+
+class ConsultationCharge extends ChargeItem {
+    - String consultantName
+    - String specialty
+    --
+    + calculateLineTotal(): BigDecimal
+}
+
+' --- Billing Core (Context for Strategy Pattern) ---
+class Bill {
+    - String billId
+    - Date issueDate
+    - BigDecimal totalAmount = 0.00
+    - BillStatus status = PENDING
+    - Patient patient
+    - List<ChargeItem> chargeItems = new ArrayList<>()
+    --
+    + addChargeItem(ChargeItem item)
+    + removeChargeItem(ChargeItem item)
+    + calculateTotal()
+    + getBillDetails(): String
+}
+
+enum BillStatus {
+    PENDING
+    GENERATED
+    PAID
+    OVERDUE
+}
+
+Bill "1" -- "1" Patient : for >
+note on link: Each bill is generated for exactly one patient. (Principle 15, 16)
+
+Bill "1" "includes" *-- "*" ChargeItem : contains >
+note on link: A bill is composed of multiple charge items. (Principle 15, 21)
+
+' --- Billing Policies (Strategy Pattern - Interface and Concrete Strategies) ---
+interface BillingPolicy {
+    + calculateBill(Bill bill, Patient patient, List<ChargeItem> rawCharges): void
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    + calculateBill(Bill bill, Patient patient, List<ChargeItem> rawCharges): void
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - Map<String, BigDecimal> subsidizedRates // Configurable fixed subsidized rates (Principle 5)
+    --
+    + calculateBill(Bill bill, Patient patient, List<ChargeItem> rawCharges): void
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateBill(Bill bill, Patient patient, List<ChargeItem> rawCharges): void
+}
+
+InsuranceBillingPolicy ..> InsuranceCoverage : applies rules from >
+note on link: The insurance policy uses patient's coverage details for calculation. (Principle 12, 21)
+
+InsuranceBillingPolicy ..> Patient : checks insurance status >
+GovernmentBillingPolicy ..> Patient : checks program eligibility >
+SelfPayBillingPolicy ..> Patient : identifies as self-pay >
+note on link: Billing policies depend on patient information to apply correct logic. (Principle 21)
+
+' --- Billing Service (Orchestrator) ---
+class BillingService {
+    --
+    + generateDischargeBill(Patient patient, List<ChargeItem> rawCharges): Bill
+    - determineBillingPolicy(Patient patient): BillingPolicy
+    - applyPolicy(BillingPolicy policy, Bill bill, Patient patient, List<ChargeItem> rawCharges): void
+}
+
+BillingService ..> BillingPolicy : uses (strategy)
+note on link: BillingService delegates bill calculation to the selected BillingPolicy. (Principle 27)
+
+BillingService ..> Patient : determines policy from >
+BillingService ..> ChargeItem : processes >
+BillingService ..> Bill : generates and updates >
+note on link: BillingService orchestrates the process of generating a bill. (Principle 21)
+
+' Place notes near relevant sections
+N1 .down. BillingPolicy
+N2 .down. BillingService
+
+@enduml

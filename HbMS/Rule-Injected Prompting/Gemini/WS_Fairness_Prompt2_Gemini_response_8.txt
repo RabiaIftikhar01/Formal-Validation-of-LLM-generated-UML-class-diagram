@@ -1,0 +1,239 @@
+```plantuml
+@startuml
+' General settings for readability and consistency
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam classArrowFontSize 10
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+
+title Hospital Discharge Billing System Class Diagram
+
+' Overall Notes for design justification
+note "This diagram models the core components for discharge billing, focusing on:\n- Configurable policies (Strategy Pattern) for runtime adaptability.\n- Clear separation of Patient data, Service data, and Billing logic.\n- Extensibility for evolving regulatory and contractual requirements." as N1
+note "Loosely coupled components enhance maintainability and reusability." as N2
+
+' 1. Patient Data Domain
+class Patient {
+    - patientId: String
+    - name: String
+    - admissionDate: Date
+    - dischargeDate: Date
+    - patientType: PatientType ' Classifies patient for billing purposes
+    + Patient(id: String, name: String)
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): PatientType
+    + setPatientType(type: PatientType)
+    ' Accessor:
+    + getAdmissionDate(): Date
+}
+
+enum PatientType {
+    INSURED
+    GOVERNMENT_SPONSORED
+    SELF_PAY
+}
+
+class InsurancePolicy {
+    - policyNumber: String
+    - providerName: String
+    - coverageDetails: Map<String, String> ' e.g., "deductible": "500", "co_pay_percentage": "20"
+    - reimbursementCeilings: Map<String, BigDecimal> ' Max amounts for specific services
+    + InsurancePolicy(policyNumber: String, providerName: String)
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + getCoverageDetails(): Map<String, String>
+    + getReimbursementCeilings(): Map<String, BigDecimal>
+    ' Helper operations for policy evaluation:
+    - isServiceCovered(serviceCode: String): boolean
+    - calculateCoPayment(serviceCost: BigDecimal): BigDecimal
+}
+
+class SubsidySchedule {
+    - scheduleId: String
+    - effectiveDate: Date
+    - subsidyRates: Map<String, BigDecimal> ' e.g., "clinical_procedure": "0.50" (50% subsidy)
+    + SubsidySchedule(id: String, effectiveDate: Date)
+    + getScheduleId(): String
+    + getEffectiveDate(): Date
+    + getSubsidyRate(serviceCode: String): BigDecimal
+    ' Helper:
+    - isValidForDate(date: Date): boolean
+}
+
+' 2. Billing Policy Domain (Strategy Pattern for runtime configurability)
+interface BillingPolicy {
+    + calculateAmount(patient: Patient, serviceItems: List<ServiceItem>, pricingData: PricingData): BigDecimal
+}
+
+class InsuranceBillingPolicy {
+    - insurancePolicy: InsurancePolicy
+    + InsuranceBillingPolicy(policy: InsurancePolicy)
+    + calculateAmount(patient: Patient, serviceItems: List<ServiceItem>, pricingData: PricingData): BigDecimal
+    ' Implementor:
+    - applyInsuranceRules(item: ServiceItem, basePrice: BigDecimal): BigDecimal
+}
+
+class GovernmentBillingPolicy {
+    - subsidySchedule: SubsidySchedule
+    + GovernmentBillingPolicy(schedule: SubsidySchedule)
+    + calculateAmount(patient: Patient, serviceItems: List<ServiceItem>, pricingData: PricingData): BigDecimal
+    ' Implementor:
+    - applySubsidy(item: ServiceItem, basePrice: BigDecimal): BigDecimal
+}
+
+class SelfPayBillingPolicy {
+    + SelfPayBillingPolicy()
+    + calculateAmount(patient: Patient, serviceItems: List<ServiceItem>, pricingData: PricingData): BigDecimal
+}
+
+' 3. Service Items & Pricing Domain
+class PricingData {
+    - pricingCatalog: Map<String, BigDecimal> ' Centralized base prices for all service codes
+    + PricingData()
+    + getPrice(serviceCode: String): BigDecimal
+    + updatePrice(serviceCode: String, newPrice: BigDecimal)
+    ' Accessor:
+    + getPricingCatalog(): Map<String, BigDecimal>
+}
+
+abstract class ServiceItem {
+    - code: String
+    - name: String
+    - description: String
+    + ServiceItem(code: String, name: String)
+    + getCode(): String
+    + getName(): String
+    + getDescription(): String
+    + {abstract} getBasePrice(pricingData: PricingData): BigDecimal ' Operation to retrieve base price
+}
+
+class ClinicalProcedure extends ServiceItem {
+    - procedureType: String
+    + ClinicalProcedure(code: String, name: String, type: String)
+    + getBasePrice(pricingData: PricingData): BigDecimal
+    ' Accessor:
+    + getProcedureType(): String
+}
+
+class Pharmaceutical extends ServiceItem {
+    - drugId: String
+    - dosage: String
+    + Pharmaceutical(code: String, name: String, drugId: String)
+    + getBasePrice(pricingData: PricingData): BigDecimal
+    ' Accessor:
+    + getDrugId(): String
+}
+
+class LabDiagnostic extends ServiceItem {
+    - testType: String
+    + LabDiagnostic(code: String, name: String, type: String)
+    + getBasePrice(pricingData: PricingData): BigDecimal
+    ' Accessor:
+    + getTestType(): String
+}
+
+class RoomUtilization extends ServiceItem {
+    - roomType: String
+    - numberOfDays: int
+    + RoomUtilization(code: String, name: String, roomType: String, days: int)
+    + getBasePrice(pricingData: PricingData): BigDecimal
+    ' Accessors:
+    + getRoomType(): String
+    + getNumberOfDays(): int
+}
+
+
+' 4. Invoice & Billing System Domain
+class Invoice {
+    - invoiceId: String
+    - invoiceDate: Date
+    - totalAmount: BigDecimal
+    - patient: Patient
+    - invoiceItems: List<InvoiceItem>
+    + Invoice(patient: Patient)
+    + getInvoiceId(): String
+    + getInvoiceDate(): Date
+    + getTotalAmount(): BigDecimal
+    + addInvoiceItem(item: InvoiceItem)
+    + getInvoiceItems(): List<InvoiceItem>
+    ' Implementor:
+    + calculateTotal()
+}
+
+class InvoiceItem {
+    - description: String
+    - quantity: int
+    - unitPrice: BigDecimal ' Price charged per unit
+    - billedAmount: BigDecimal ' Total amount for this item after policies
+    - serviceItem: ServiceItem
+    + InvoiceItem(serviceItem: ServiceItem, quantity: int, unitPrice: BigDecimal, billedAmount: BigDecimal)
+    + getDescription(): String
+    + getQuantity(): int
+    + getUnitPrice(): BigDecimal
+    + getBilledAmount(): BigDecimal
+    + getServiceItem(): ServiceItem
+}
+
+class DischargeBillingService {
+    - currentBillingPolicy: BillingPolicy
+    - pricingData: PricingData
+    + DischargeBillingService(pricingData: PricingData)
+    + setBillingPolicy(policy: BillingPolicy) ' Manager: Allows runtime policy replacement
+    + generateDischargeBill(patient: Patient, patientServiceItems: List<ServiceItem>): Invoice
+    ' Helper:
+    - determinePolicyForPatient(patient: Patient): BillingPolicy ' Could use a PolicyFactory or rule engine
+    - retrievePatientServiceItems(patientId: String): List<ServiceItem> ' Placeholder for data access
+}
+
+' 5. Relationships
+
+' Patient Data Domain Relationships
+Patient "1" --> "1" PatientType : has
+Patient "1" -- "0..1" InsurancePolicy : is associated with > (if INSURED)
+InsuranceBillingPolicy "1" -- "1" InsurancePolicy : uses >
+
+' Billing Policy Domain Relationships
+BillingPolicy <|.. InsuranceBillingPolicy : implements
+BillingPolicy <|.. GovernmentBillingPolicy : implements
+BillingPolicy <|.. SelfPayBillingPolicy : implements
+GovernmentBillingPolicy "1" -- "1" SubsidySchedule : uses >
+
+' Service Items & Pricing Domain Relationships
+ServiceItem <|-- ClinicalProcedure
+ServiceItem <|-- Pharmaceutical
+ServiceItem <|-- LabDiagnostic
+ServiceItem <|-- RoomUtilization
+ServiceItem "1" -- "1" PricingData : retrieves price from >
+
+' Invoice & Billing System Domain Relationships
+DischargeBillingService "1" --> "1" BillingPolicy : <<uses>> currentPolicy
+DischargeBillingService "1" --> "1" PricingData : uses
+Invoice "1" --> "1" Patient : for
+Invoice "1" -- "1..*" InvoiceItem : contains
+InvoiceItem "1" --> "1" ServiceItem : describes
+
+' Notes on specific relationships
+note right of PatientType
+  An enum for patient classification.
+  Could be a class if more complex logic
+  or attributes were needed.
+end note
+
+note bottom of ServiceItem
+  Abstract class defining common properties
+  and behavior for all billable services.
+  Each concrete service item knows how to
+  retrieve its base price from PricingData.
+end note
+
+note left of DischargeBillingService
+  The orchestrator of the billing process.
+  It utilizes the Strategy Pattern via
+  'currentBillingPolicy' to adapt billing
+  logic at runtime.
+end note
+
+@enduml
+```

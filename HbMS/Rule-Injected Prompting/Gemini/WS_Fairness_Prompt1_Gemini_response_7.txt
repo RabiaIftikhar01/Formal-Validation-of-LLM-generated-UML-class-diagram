@@ -1,0 +1,205 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+title Hospital Discharge Billing System Class Diagram
+
+' --- Enums ---
+enum PatientType {
+  IN_PATIENT
+  OUT_PATIENT
+}
+
+enum BillingPreferenceType {
+  INSURANCE
+  GOVERNMENT
+  SELF_PAY
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  PARTIAL_PAID
+  CANCELLED
+}
+
+enum ChargeType {
+  PROCEDURE
+  MEDICATION
+  DIAGNOSTIC_TEST
+  ROOM
+  CONSULTATION
+}
+
+' --- Value Object ---
+class Money {
+  - amount: BigDecimal
+  - currency: Currency
+  + Money(amount: BigDecimal, currency: Currency)
+  + add(other: Money): Money
+  + subtract(other: Money): Money
+  + multiply(factor: BigDecimal): Money
+  + isGreaterThan(other: Money): boolean
+  + isLessThan(other: Money): boolean
+  + getAmount(): BigDecimal
+  + getCurrency(): Currency
+  + toString(): String
+}
+
+' --- Patient and related information ---
+class Patient {
+  - patientId: String
+  - name: String
+  - dateOfBirth: Date
+  - patientType: PatientType
+  - billingPreferenceType: BillingPreferenceType
+  + Patient(patientId: String, name: String, dateOfBirth: Date, patientType: PatientType, billingPreferenceType: BillingPreferenceType)
+  + getPatientId(): String
+  + getName(): String
+  + getPatientType(): PatientType
+  + getBillingPreferenceType(): BillingPreferenceType
+}
+
+class InsurancePolicy {
+  - policyNumber: String
+  - providerName: String
+  - coverageRules: String ' e.g., JSON or complex object describing rules
+  - reimbursementLimit: Money
+  - coPaymentStructure: Money
+  + InsurancePolicy(policyNumber: String, providerName: String, coverageRules: String, reimbursementLimit: Money, coPaymentStructure: Money)
+  + getPolicyNumber(): String
+  + getProviderName(): String
+  + getCoverageRules(): String
+  + getReimbursementLimit(): Money
+  + getCoPaymentStructure(): Money
+}
+
+class GovernmentProgram {
+  - programName: String
+  - subsidizedRates: Map<ChargeType, Money> ' Map charge type to subsidized rate
+  - eligibilityCriteria: String
+  + GovernmentProgram(programName: String, subsidizedRates: Map<ChargeType, Money>, eligibilityCriteria: String)
+  + getProgramName(): String
+  + getSubsidizedRate(chargeType: ChargeType): Money
+  + getEligibilityCriteria(): String
+}
+
+Patient "1" -- "0..1" InsurancePolicy : has >
+Patient "1" -- "0..1" GovernmentProgram : participatesIn >
+
+' --- Treatment Records and Charges ---
+class TreatmentRecord {
+  - recordId: String
+  - admissionDate: Date
+  - dischargeDate: Date
+  - charges: List<Charge>
+  + TreatmentRecord(recordId: String, admissionDate: Date)
+  + addCharge(charge: Charge): void
+  + getCharges(): List<Charge>
+  + getAdmissionDate(): Date
+  + getDischargeDate(): Date
+}
+
+abstract class Charge {
+  - chargeId: String
+  - description: String
+  - baseAmount: Money
+  - chargeDate: Date
+  - chargeType: ChargeType
+  + Charge(chargeId: String, description: String, baseAmount: Money, chargeDate: Date, chargeType: ChargeType)
+  + getChargeId(): String
+  + getDescription(): String
+  + getBaseAmount(): Money
+  + getChargeDate(): Date
+  + getChargeType(): ChargeType
+}
+
+class ProcedureCharge extends Charge {}
+class MedicationCharge extends Charge {}
+class DiagnosticTestCharge extends Charge {}
+class DiagnosticTestCharge extends Charge {}
+class RoomCharge extends Charge {}
+class ConsultationCharge extends Charge {}
+
+Patient "1" -- "0..*" TreatmentRecord : undergoes >
+TreatmentRecord "1" *-- "0..*" Charge : aggregates >
+
+' --- Billing Core Logic (Strategy Pattern) ---
+interface IBillingPolicy {
+  + calculateFinalAmount(patient: Patient, charges: List<Charge>): Money
+}
+
+class InsuranceBillingPolicy implements IBillingPolicy {
+  + calculateFinalAmount(patient: Patient, charges: List<Charge>): Money
+  - getPatientInsurancePolicy(patient: Patient): InsurancePolicy
+  - applyInsuranceRules(charge: Charge, insurancePolicy: InsurancePolicy): Money
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+  + calculateFinalAmount(patient: Patient, charges: List<Charge>): Money
+  - getPatientGovernmentProgram(patient: Patient): GovernmentProgram
+  - applySubsidizedRates(charge: Charge, governmentProgram: GovernmentProgram): Money
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+  + calculateFinalAmount(patient: Patient, charges: List<Charge>): Money
+}
+
+InsuranceBillingPolicy ..> InsurancePolicy : uses >
+GovernmentBillingPolicy ..> GovernmentProgram : uses >
+
+' --- Bill and Billing Service ---
+class Bill {
+  - billId: String
+  - generationDate: Date
+  - totalAmount: Money
+  - status: BillStatus
+  - chargeItems: List<Charge>
+  + Bill(billId: String, generationDate: Date)
+  + addChargeItem(charge: Charge): void
+  + getBillId(): String
+  + getGenerationDate(): Date
+  + getTotalAmount(): Money
+  + setTotalAmount(amount: Money): void
+  + getStatus(): BillStatus
+  + getChargeItems(): List<Charge>
+}
+
+class BillingService {
+  + generateDischargeBill(patient: Patient, treatmentRecord: TreatmentRecord): Bill
+  - selectBillingPolicy(patient: Patient): IBillingPolicy
+  - createBill(patient: Patient, generationDate: Date): Bill
+  - populateBillWithCharges(bill: Bill, charges: List<Charge>): void
+}
+
+Bill "1" *-- "0..*" Charge : contains >
+Patient "1" -- "0..*" Bill : receives >
+
+BillingService ..> IBillingPolicy : uses >
+BillingService ..> Patient : interacts with >
+BillingService ..> TreatmentRecord : processes >
+BillingService ..> Bill : creates >
+
+' --- Pricing Service (for initial charge base amounts) ---
+class PricingService {
+  + getBasePrice(chargeType: ChargeType, itemIdentifier: String): Money
+  - loadPricingRules(chargeType: ChargeType): Map<String, Money>
+}
+' PricingService is used by an upstream system (e.g., a TreatmentService)
+' to determine the baseAmount when a Charge object is initially created.
+' BillingService receives already-priced Charge objects.
+
+' --- Explanatory Notes ---
+note "Policies are interchangeable\nat runtime (Strategy Pattern)" as PolicyNote
+IBillingPolicy .. PolicyNote
+
+note "PricingService determines the baseAmount\nfor charges during their creation.\nBillingService receives pre-priced Charges." as PricingNote
+PricingService .. PricingNote
+
+note "Ensures strong separation between:\n- Patient records (Patient, InsurancePolicy, GovernmentProgram)\n- Pricing components (Charge and its subclasses)\n- Billing Policies (IBillingPolicy and implementations)" as SeparationNote
+Patient .. SeparationNote
+Charge .. SeparationNote
+IBillingPolicy .. SeparationNote
+
+@enduml
+```

@@ -1,0 +1,191 @@
+@startuml
+' General Design Notes:
+' 1. Strategy Pattern is used for Billing Policies (IBillingPolicy and its concrete implementations)
+'    to allow interchangeable billing logic at runtime without modifying the BillGenerator.
+' 2. Polymorphism is used for different Charge types (Charge and its subclasses) to handle
+'    independent pricing rules for procedures, medications, diagnostics, and room occupancy.
+' 3. Strong separation is maintained between Patient data, Billing Policies, and Charge components
+'    to enhance extensibility and maintainability.
+' 4. The BillItem class acts as an association class, facilitating flexible linking of charges
+'    with specific quantities and prices at the time of billing, preventing clutter in Bill or Charge.
+' 5. Naming conventions: Classes in PascalCase, attributes and methods in camelCase.
+' 6. The design aims for loose coupling and high cohesion to ensure the system is easy to
+'    integrate, test, and maintain, and extensible for future regulatory changes.
+
+' Define the Patient and related information
+package "Patient Management" {
+    class Patient {
+        - String patientId
+        - String name
+        - PatientType patientType
+        --
+        + getPatientId() : String
+        + getName() : String
+        + getPatientType() : PatientType
+    }
+
+    enum PatientType {
+        INSURED
+        GOVERNMENT_PROGRAM
+        SELF_PAY
+    }
+
+    class InsuranceDetails {
+        - String policyNumber
+        - String providerName
+        - String coverageRules
+        - String reimbursementLimits
+        - String coPaymentStructure
+        --
+        + getPolicyNumber() : String
+        + getProviderName() : String
+        + getCoverageRules() : String
+        + getReimbursementLimits() : String
+        + getCoPaymentStructure() : String
+    }
+
+    Patient "1" -- "0..1" InsuranceDetails : has >
+    Patient "1" -- "1" PatientType : has a
+}
+
+' Define the core Billing system components
+package "Billing Core" {
+    class Bill {
+        - String billId
+        - Date billingDate
+        - BigDecimal totalAmount
+        --
+        + addBillItem(item : BillItem) : void
+        + calculateTotal() : BigDecimal
+        + getBillId() : String
+        + getBillingDate() : Date
+        + getTotalAmount() : BigDecimal
+        + getBillItems() : List<BillItem>
+    }
+
+    class BillItem {
+        - int quantity
+        - BigDecimal unitPriceAtBilling
+        - BigDecimal itemTotal
+        --
+        + calculateItemTotal() : BigDecimal
+        + getQuantity() : int
+        + getUnitPriceAtBilling() : BigDecimal
+        + getCharge() : Charge
+    }
+
+    class BillGenerator {
+        - IBillingPolicy currentPolicy
+        --
+        + generateBill(patient : Patient, charges : List<Charge>) : Bill
+        - determineBillingPolicy(patient : Patient) : IBillingPolicy
+        + setBillingPolicy(policy : IBillingPolicy) : void
+    }
+
+    Bill "1" *-- "0..*" BillItem : contains >
+    BillGenerator "1" o-- "1" IBillingPolicy : uses >
+    BillGenerator ..> Patient : generates bill for >
+    BillGenerator ..> Bill : creates >
+}
+
+' Define the Charge hierarchy for different service types
+package "Charge Management" {
+    abstract class Charge {
+        - String chargeId
+        - String description
+        - BigDecimal basePrice
+        --
+        + {abstract} calculatePrice() : BigDecimal
+        + getChargeId() : String
+        + getDescription() : String
+        + getBasePrice() : BigDecimal
+    }
+
+    class ProcedureCharge {
+        - String procedureCode
+        - String procedureName
+        --
+        + calculatePrice() : BigDecimal
+        + getProcedureCode() : String
+    }
+
+    class MedicationCharge {
+        - String drugCode
+        - String drugName
+        - String dosage
+        --
+        + calculatePrice() : BigDecimal
+        + getDrugCode() : String
+    }
+
+    class DiagnosticTestCharge {
+        - String testCode
+        - String testName
+        --
+        + calculatePrice() : BigDecimal
+        + getTestCode() : String
+    }
+
+    class RoomCharge {
+        - String roomType
+        - BigDecimal dailyRate
+        - int numberOfDays
+        --
+        + calculatePrice() : BigDecimal
+        + getRoomType() : String
+    }
+
+    Charge <|-- ProcedureCharge
+    Charge <|-- MedicationCharge
+    Charge <|-- DiagnosticTestCharge
+    Charge <|-- RoomCharge
+
+    BillItem "0..*" -- "1" Charge : references >
+}
+
+' Define the Billing Policy Strategy implementations
+package "Billing Policies" {
+    interface IBillingPolicy {
+        + calculateBillAmount(bill : Bill, patient : Patient) : BigDecimal
+    }
+
+    class InsuranceBillingPolicy {
+        --
+        + calculateBillAmount(bill : Bill, patient : Patient) : BigDecimal
+    }
+
+    class GovernmentBillingPolicy {
+        - BigDecimal subsidizedRateFactor
+        --
+        + calculateBillAmount(bill : Bill, patient : Patient) : BigDecimal
+        + getSubsidizedRateFactor() : BigDecimal
+    }
+
+    class SelfPayBillingPolicy {
+        --
+        + calculateBillAmount(bill : Bill, patient : Patient) : BigDecimal
+    }
+
+    IBillingPolicy <|.. InsuranceBillingPolicy
+    IBillingPolicy <|.. GovernmentBillingPolicy
+    IBillingPolicy <|.. SelfPayBillingPolicy
+
+    InsuranceBillingPolicy ..> InsuranceDetails : relies on >
+    GovernmentBillingPolicy ..> Patient : accesses patient type >
+    SelfPayBillingPolicy ..> Patient : accesses patient type >
+}
+
+' Explanatory notes to highlight key design decisions
+note "The Strategy Pattern allows billing logic to be swapped at runtime\nwithout modifying the BillGenerator, enabling easy adaptation to\nchanging regulations and contractual updates." as N1
+IBillingPolicy .. N1
+
+note "Polymorphism enables different charge types to have their own pricing rules,\nensuring extensibility for new types of services and charges." as N2
+Charge .. N2
+
+note "BillGenerator determines the appropriate billing policy (Strategy) based on\nthe patient's PatientType and insurance details, fulfilling US-SYS1." as N3
+BillGenerator .. N3
+
+note "BillItem captures the specific state of a charge at the time of billing\n(quantity, unit price after any initial discounts/rules applied), ensuring\nbill consistency and preventing data redundancy within the Bill." as N4
+BillItem .. N4
+
+@enduml

@@ -1,0 +1,218 @@
+```plantuml
+@startuml
+
+' Set a consistent style for readability
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam shadowing false
+
+' --- Package for Patient Information ---
+package "Patient Information" {
+    class Patient {
+        - patientId: String
+        - name: String
+        - dateOfBirth: Date
+        - patientCategory: PatientCategory
+        - insuranceDetails: InsuranceDetails
+        - governmentProgramDetails: GovernmentProgramDetails
+        + getPatientId(): String
+        + getName(): String
+        + getPatientCategory(): PatientCategory
+        + getInsuranceDetails(): InsuranceDetails
+        + getGovernmentProgramDetails(): GovernmentProgramDetails
+    }
+
+    enum PatientCategory {
+        INSURED
+        GOVERNMENT_BENEFICIARY
+        SELF_FUNDED
+    }
+
+    class InsuranceDetails {
+        - policyNumber: String
+        - providerName: String
+        - coverageLimits: Map<String, Double>
+        - coPayAmount: Double
+        + getPolicyNumber(): String
+        + getCoverageLimits(): Map<String, Double>
+        + getCoPayAmount(): Double
+    }
+
+    class GovernmentProgramDetails {
+        - programId: String
+        - programName: String
+        - subsidyRates: Map<String, Double>
+        + getProgramId(): String
+        + getSubsidyRates(): Map<String, Double>
+    }
+
+    Patient "1" o-- "0..1" InsuranceDetails : has
+    Patient "1" o-- "0..1" GovernmentProgramDetails : has
+    Patient "1" -- "1" PatientCategory : has
+}
+
+' --- Package for Services and Pricing ---
+package "Services & Pricing" {
+    abstract class ServiceItem {
+        - serviceId: String
+        - name: String
+        - description: String
+        + getServiceId(): String
+        + getName(): String
+        + getDescription(): String
+    }
+
+    class MedicalProcedure extends ServiceItem {
+        - procedureCode: String
+        + getProcedureCode(): String
+    }
+
+    class Medication extends ServiceItem {
+        - dosage: String
+        - strength: String
+        + getDosage(): String
+    }
+
+    class DiagnosticService extends ServiceItem {
+        - testCode: String
+        + getTestCode(): String
+    }
+
+    class AccommodationCharge extends ServiceItem {
+        - roomType: String
+        - dailyRate: Double
+        + getRoomType(): String
+    }
+
+    interface IPricingStrategy {
+        + calculatePrice(serviceItem: ServiceItem, quantity: int): Double
+    }
+
+    class StandardPricingStrategy implements IPricingStrategy {
+        + calculatePrice(serviceItem: ServiceItem, quantity: int): Double
+    }
+
+    class TieredPricingStrategy implements IPricingStrategy {
+        + calculatePrice(serviceItem: ServiceItem, quantity: int): Double
+    }
+
+    class PricingService {
+        - pricingStrategies: Map<String, IPricingStrategy>
+        + getPrice(serviceItem: ServiceItem, quantity: int): Double
+        + registerStrategy(serviceItemTypeName: String, strategy: IPricingStrategy)
+    }
+
+    PricingService "1" *-- "1..*" IPricingStrategy : uses
+}
+
+' --- Package for Hospital Stay Management ---
+package "Hospital Stay Management" {
+    class HospitalStay {
+        - stayId: String
+        - patient: Patient
+        - admissionDate: Date
+        - dischargeDate: Date
+        + getStayId(): String
+        + getPatient(): Patient
+        + addServiceEntry(entry: ServiceItemEntry)
+        + getServiceEntries(): List<ServiceItemEntry>
+        + getTotalActualCost(): Double
+    }
+
+    class ServiceItemEntry {
+        - id: String
+        - serviceItem: ServiceItem
+        - quantity: int
+        - datePerformed: Date
+        - actualCost: Double ' Cost before billing policy, determined by PricingService
+        + getId(): String
+        + getServiceItem(): ServiceItem
+        + getQuantity(): int
+        + getDatePerformed(): Date
+        + getActualCost(): Double
+    }
+
+    HospitalStay "1" *-- "0..*" ServiceItemEntry : records
+    ServiceItemEntry "1" -- "1" ServiceItem : refers to
+    HospitalStay "1" -- "1" Patient : for >
+}
+
+' --- Package for Billing Policies and Invoice Generation ---
+package "Billing & Invoicing" {
+    interface IBillingPolicy {
+        + calculatePatientShare(totalBilledAmount: Double, patient: Patient): Double
+        + applyPolicyToLineItem(entry: ServiceItemEntry, patient: Patient): InvoiceLineItem
+    }
+
+    class InsuredBillingPolicy implements IBillingPolicy {
+        + calculatePatientShare(totalBilledAmount: Double, patient: Patient): Double
+        + applyPolicyToLineItem(entry: ServiceItemEntry, patient: Patient): InvoiceLineItem
+    }
+
+    class GovernmentBillingPolicy implements IBillingPolicy {
+        + calculatePatientShare(totalBilledAmount: Double, patient: Patient): Double
+        + applyPolicyToLineItem(entry: ServiceItemEntry, patient: Patient): InvoiceLineItem
+    }
+
+    class SelfFundedBillingPolicy implements IBillingPolicy {
+        + calculatePatientShare(totalBilledAmount: Double, patient: Patient): Double
+        + applyPolicyToLineItem(entry: ServiceItemEntry, patient: Patient): InvoiceLineItem
+    }
+
+    class DischargeInvoice {
+        - invoiceId: String
+        - patient: Patient
+        - hospitalStay: HospitalStay
+        - invoiceDate: Date
+        - totalBilledAmount: Double ' Sum of actual costs of all service entries
+        - patientShareAmount: Double ' Total amount patient is responsible for
+        - status: String ' e.g., PENDING, PAID, PARTIAL
+        + getInvoiceId(): String
+        + getTotalBilledAmount(): Double
+        + getPatientShareAmount(): Double
+        + addLineItem(item: InvoiceLineItem)
+        + getLineItems(): List<InvoiceLineItem>
+    }
+
+    class InvoiceLineItem {
+        - description: String
+        - quantity: int
+        - unitPrice: Double ' Price before policy application (from ServiceItemEntry.actualCost / quantity)
+        - patientShareUnitPrice: Double ' Unit price after policy application for patient
+        - totalLineAmount: Double ' Total for this line before policy
+        - patientShareLineAmount: Double ' Total for this line patient's share
+        + getDescription(): String
+        + getPatientShareLineAmount(): Double
+    }
+
+    class DischargeInvoiceGenerator {
+        - billingPolicy: IBillingPolicy
+        - pricingService: PricingService ' Injected dependency
+        + generateInvoice(patient: Patient, hospitalStay: HospitalStay): DischargeInvoice
+        + setBillingPolicy(policy: IBillingPolicy)
+    }
+
+    DischargeInvoiceGenerator "1" -- "1" IBillingPolicy : uses >
+    DischargeInvoiceGenerator "1" -- "1" PricingService : uses >
+    DischargeInvoiceGenerator "1" ..> DischargeInvoice : generates
+    DischargeInvoice "1" *-- "1..*" InvoiceLineItem : comprises
+    DischargeInvoice "1" -- "1" Patient : for >
+    DischargeInvoice "1" -- "1" HospitalStay : based on >
+    InvoiceLineItem "1" ..> ServiceItemEntry : derived from
+}
+
+' --- Overall System Dependencies Notes ---
+note "Strategy Pattern for dynamically interchangeable billing policies" as N1
+IBillingPolicy .. N1
+
+note "Strategy Pattern for distinct pricing rules" as N2
+IPricingStrategy .. N2
+
+note "Strict separation of concerns:\n- Patient Information\n- Services & Pricing\n- Billing Policies" as N3
+PatientCategory .. N3
+IPricingStrategy .. N3
+IBillingPolicy .. N3
+
+@enduml
+```

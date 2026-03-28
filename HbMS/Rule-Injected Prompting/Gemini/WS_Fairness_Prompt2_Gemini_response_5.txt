@@ -1,0 +1,211 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' --- Global Configuration and Styling for Readability ---
+skinparam class {
+    BorderColor #696969
+    BackgroundColor #F0F8FF
+    ArrowColor #696969
+    AttributeFontColor #36454F
+    MethodFontColor #2F4F4F
+}
+skinparam interface {
+    BorderColor #4682B4
+    BackgroundColor #E0FFFF
+}
+skinparam abstract {
+    BorderColor #8B0000
+    BackgroundColor #FFE4E1
+}
+hide empty members
+
+' --- Package for Core Billing Logic - Implements the Strategy Pattern ---
+package "Billing Core" {
+    interface BillingPolicy <<Strategy>> {
+        + calculate(patient: Patient, entries: List<BillingEntry>): BillCalculationResult
+    }
+
+    class InsuranceBillingPolicy {
+        - insuranceRules: Map<String, Object>
+        + calculate(patient: Patient, entries: List<BillingEntry>): BillCalculationResult
+    }
+
+    class GovernmentBillingPolicy {
+        - subsidySchedule: Map<String, BigDecimal>
+        + calculate(patient: Patient, entries: List<BillingEntry>): BillCalculationResult
+    }
+
+    class SelfPayBillingPolicy {
+        + calculate(patient: Patient, entries: List<BillingEntry>): BillCalculationResult
+    }
+
+    ' Inheritance: Concrete policies implement the BillingPolicy interface
+    BillingPolicy <|-- InsuranceBillingPolicy
+    BillingPolicy <|-- GovernmentBillingPolicy
+    BillingPolicy <|-- SelfPayBillingPolicy
+
+    class BillingEngine {
+        - policyConfiguration: PolicyConfiguration
+        - pricingService: PricingService
+        + generateDischargeBill(patient: Patient, serviceEntries: List<BillingEntry>): Bill
+        - determineBillingPolicy(patient: Patient): BillingPolicy
+    }
+
+    class BillCalculationResult {
+        + totalAmount: BigDecimal
+        + patientShare: BigDecimal
+        + insurerShare: BigDecimal
+        + governmentShare: BigDecimal
+        + breakdown: Map<String, BigDecimal>
+        + getPatientShare(): BigDecimal
+        + getTotalAmount(): BigDecimal
+    }
+
+    ' Dependencies for BillingEngine
+    BillingEngine "1" -- "1" PolicyConfiguration : uses >
+    BillingEngine "1" -- "1" PricingService : uses >
+    BillingEngine "1" ..> BillingPolicy : <<uses>>
+    BillingEngine "1" ..> BillCalculationResult : <<creates>>
+}
+
+' --- Package for Patient Data - Encapsulates patient-specific information ---
+package "Patient Data" {
+    class Patient {
+        + patientId: String
+        + name: String
+        + dateOfBirth: Date
+        + patientCategory: PatientCategory <<enum>> ' In-patient or Out-patient status
+        + contactInfo: String
+        + isGovernmentSponsored: boolean
+        + hasInsurance(): boolean
+        + getInsuranceCoverage(): InsuranceCoverage
+    }
+
+    class InsuranceCoverage {
+        + policyNumber: String
+        + insurerName: String
+        + coverageDetails: Map<String, Object>
+        + getCoverageLimit(serviceType: String): BigDecimal
+        + getCoPayment(serviceType: String): BigDecimal
+    }
+
+    enum PatientCategory {
+        IN_PATIENT
+        OUT_PATIENT
+    }
+
+    ' Relationships within Patient Data
+    Patient "1" -- "0..1" InsuranceCoverage : has >
+    Patient "1" -- "1" PatientCategory : is >
+}
+
+' --- Package for Billing Entries and Pricing - Defines chargeable items and their pricing ---
+package "Billing Items" {
+    abstract class BillingEntry {
+        + entryId: String
+        + description: String
+        + basePrice: BigDecimal
+        + quantity: int
+        + dateOfService: Date
+        + getLineTotal(): BigDecimal
+    }
+
+    class ClinicalProcedureEntry {
+        + procedureCode: String
+        + procedureName: String
+    }
+
+    class PharmaceuticalEntry {
+        + drugCode: String
+        + drugName: String
+        + dosage: String
+    }
+
+    class LaboratoryDiagnosticEntry {
+        + testCode: String
+        + testName: String
+    }
+
+    class RoomUtilizationEntry {
+        + roomNumber: String
+        + daysStayed: int
+        + roomType: String
+    }
+
+    class ConsultationEntry {
+        + doctorId: String
+        + consultationType: String
+    }
+
+    ' Inheritance: Specific billing entries extend the base BillingEntry
+    BillingEntry <|-- ClinicalProcedureEntry
+    BillingEntry <|-- PharmaceuticalEntry
+    BillingEntry <|-- LaboratoryDiagnosticEntry
+    BillingEntry <|-- RoomUtilizationEntry
+    BillingEntry <|-- ConsultationEntry
+
+    class PricingService {
+        - priceCatalog: Map<String, BigDecimal>
+        + getUnitPrice(itemCode: String): BigDecimal
+        + updatePrice(itemCode: String, newPrice: BigDecimal)
+    }
+}
+
+' --- Package for Bill Output - Represents the generated invoice ---
+package "Bill Output" {
+    class Bill {
+        + billId: String
+        + patientId: String ' Foreign key to Patient for persistence and lookup
+        + issueDate: Date
+        + totalAmount: BigDecimal
+        + patientShare: BigDecimal
+        + insurerShare: BigDecimal
+        + governmentShare: BigDecimal
+        + status: BillStatus <<enum>>
+        + appliedPolicyType: PolicyType <<enum>> ' Records the type of policy used for this bill
+        + addEntry(entry: BillingEntry)
+        + calculateTotal(): void
+    }
+
+    enum BillStatus {
+        PENDING
+        GENERATED
+        PAID
+        CANCELLED
+    }
+
+    ' Relationships for Bill Output
+    Bill "1" *-- "1..*" BillingEntry : comprises
+    Bill "1" -- "1" BillStatus : has >
+    Bill "1" -- "1" Patient : for > ' Association from Bill to Patient
+    Bill "1" -- "1" PolicyType : used > ' Dependency on PolicyType enum
+}
+
+' --- Policy Management - Handles runtime policy configuration and selection ---
+package "Policy Management" {
+    enum PolicyType {
+        INSURANCE
+        GOVERNMENT
+        SELF_PAY
+    }
+
+    class PolicyConfiguration {
+        - policyInstances: Map<PolicyType, BillingPolicy> ' Stores instances of billing policies
+        + getPolicy(patient: Patient): BillingPolicy
+        + registerPolicy(policyType: PolicyType, policy: BillingPolicy)
+    }
+
+    ' Dependencies for PolicyConfiguration
+    PolicyConfiguration "1" ..> BillingPolicy : <<manages>>
+    PolicyConfiguration "1" ..> PolicyType : <<uses>>
+    PolicyConfiguration "1" ..> Patient : <<uses>> ' getPolicy method takes Patient as input
+}
+
+' --- Cross-Package Dependencies ---
+InsuranceBillingPolicy "1" --> "1" InsuranceCoverage : applies based on >
+BillingEngine "1" -- "1" Bill : creates >
+BillingEngine "1" ..> Patient : <<uses>>
+
+@enduml
+```

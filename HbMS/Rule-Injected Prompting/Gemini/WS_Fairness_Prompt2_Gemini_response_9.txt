@@ -1,0 +1,151 @@
+@startuml
+!theme mars
+
+title Hospital Discharge Billing System - Class Diagram
+
+' Enums
+enum PatientType {
+  INSURED
+  GOVERNMENT
+  SELF_PAY
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  PARTIAL_PAID
+}
+
+' Patient Data Domain - Encapsulates patient-specific information
+class Patient {
+  + patientId: String
+  + name: String
+  + dateOfBirth: Date
+  + type: PatientType
+  --
+  + getPatientType(): PatientType
+}
+
+class InsuranceDetails {
+  + policyNumber: String
+  + providerName: String
+  + coveragePlan: String
+}
+
+Patient "1" *-- "0..1" InsuranceDetails : has
+
+' Billing Entry / Pricing Elements Domain - Represents individual billable items and their base pricing logic
+abstract class BillingEntry {
+  + entryId: String
+  + description: String
+  + quantity: int
+  + unitPrice: double
+  --
+  + calculateBaseAmount(): double
+}
+
+class ClinicalProcedureEntry {
+  + procedureCode: String
+  + procedureName: String
+  --
+  + calculateBaseAmount(): double
+}
+
+class PharmaceuticalEntry {
+  + medicationName: String
+  + dosage: String
+  --
+  + calculateBaseAmount(): double
+}
+
+class LabDiagnosticEntry {
+  + testName: String
+  + resultStatus: String
+  --
+  + calculateBaseAmount(): double
+}
+
+class RoomUtilizationEntry {
+  + roomNumber: String
+  + daysOccupied: int
+  --
+  + calculateBaseAmount(): double
+}
+
+BillingEntry <|-- ClinicalProcedureEntry
+BillingEntry <|-- PharmaceuticalEntry
+BillingEntry <|-- LabDiagnosticEntry
+BillingEntry <|-- RoomUtilizationEntry
+
+' Bill Domain - Aggregates billing entries and stores the final calculated amounts
+class Bill {
+  + billId: String
+  + issueDate: Date
+  + prePolicyTotal: double
+  + finalAmount: double
+  + status: BillStatus
+  --
+  + addEntry(entry: BillingEntry)
+  + removeEntry(entry: BillingEntry)
+  + calculatePrePolicyTotal(): double
+  + setFinalAmount(amount: double)
+}
+
+Bill "1" *-- "1..*" BillingEntry : contains
+Bill "1" --> "1" Patient : for
+
+' Billing Policy Domain (Strategy Pattern) - Defines and implements different billing behaviors
+interface IBillingPolicy {
+  + applyPolicy(bill: Bill, patient: Patient): double
+}
+
+class InsuranceBillingPolicy {
+  + coverageRules: Map<String, Double>
+  + coPaymentRate: double
+  --
+  + applyPolicy(bill: Bill, patient: Patient): double
+}
+
+class GovernmentBillingPolicy {
+  + subsidySchedule: Map<String, Double>
+  --
+  + applyPolicy(bill: Bill, patient: Patient): double
+}
+
+class SelfPayBillingPolicy {
+  --
+  + applyPolicy(bill: Bill, patient: Patient): double
+}
+
+IBillingPolicy <|.. InsuranceBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' Service / Orchestrator - Coordinates the billing process
+class DischargeBillingService {
+  - policyRegistry: Map<PatientType, IBillingPolicy>
+  --
+  + generateBill(patient: Patient, entries: List<BillingEntry>): Bill
+  + selectPolicy(patientType: PatientType): IBillingPolicy
+  + registerPolicy(patientType: PatientType, policy: IBillingPolicy)
+}
+
+DischargeBillingService ..> Patient : uses
+DischargeBillingService ..> Bill : creates
+DischargeBillingService ..> IBillingPolicy : configures & applies
+
+note right of DischargeBillingService
+  Manages runtime policy selection
+  and application based on PatientType.
+  Ensures extensibility for new policies.
+end note
+
+note "The system supports updates to coverage definitions,\nreimbursement ceilings, co-payment models,\nand subsidy schedules without structural redesign\nthrough configurable policies and the Strategy pattern." as N1
+DischargeBillingService .. N1
+
+note "Clear separation among patient data, pricing elements,\nand billing policies is maintained by dedicated classes." as N2
+Patient .. N2
+BillingEntry .. N2
+IBillingPolicy .. N2
+
+@enduml

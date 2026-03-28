@@ -1,0 +1,218 @@
+```plantuml
+@startuml
+
+' Set a consistent style for the diagram
+skinparam class {
+  BorderColor #34495E
+  BackgroundColor #ECF0F1
+  ArrowColor #34495E
+  AttributeFontColor #2C3E50
+  MethodFontColor #2C3E50
+  StereotypeFontColor #808B96
+}
+skinparam interface {
+  BorderColor #2980B9
+  BackgroundColor #D6EAF8
+  ArrowColor #2980B9
+}
+skinparam enum {
+  BorderColor #7D3C98
+  BackgroundColor #EBDEF0
+  ArrowColor #7D3C98
+}
+skinparam legend {
+  BorderColor #BDC3C7
+  BackgroundColor #F2F4F4
+}
+
+title Hospital Discharge Billing System - Class Diagram
+
+' ---------------------------------------
+' Core Billing Classes
+' ---------------------------------------
+
+class PATIENT {
+  - patientId: String
+  - name: String
+  - admissionDate: Date
+  - dischargeDate: Date
+  - patientCategory: PatientCategory <<enum>>
+  - insuranceDetails: INSURANCE_DETAILS <<optional>>
+  --
+  + getPatientCategory(): PatientCategory
+  + getInsuranceDetails(): INSURANCE_DETAILS
+}
+
+enum PatientCategory {
+  INSURED
+  GOVERNMENT_BENEFICIARY
+  SELF_PAY
+}
+
+class INSURANCE_DETAILS {
+  - providerName: String
+  - policyNumber: String
+  - coveragePercentage: double
+  - deductible: double
+  - coPayAmount: double
+  --
+  + getCoveragePercentage(): double
+  + getDeductible(): double
+  + getCoPayAmount(): double
+}
+
+class DISCHARGE_INVOICE {
+  - invoiceId: String
+  - invoiceDate: Date
+  - patient: PATIENT
+  - prePolicyTotal: double
+  - finalAmount: double
+  --
+  + addBilledService(serviceItem: SERVICE_ITEM, quantity: int): void
+  + calculatePrePolicyTotal(): double
+  + applyBillingPolicy(policy: IBILLING_POLICY): void
+  + getFinalAmount(): double
+}
+
+' ---------------------------------------
+' Service/Cost Aggregation Classes (Composite Pattern elements)
+' ---------------------------------------
+
+interface SERVICE_ITEM <<interface>> {
+  + serviceId: String
+  + name: String
+  + description: String
+  --
+  + getBaseCost(): double
+}
+
+class MEDICAL_PROCEDURE {
+  - procedureCode: String
+  - procedureName: String
+  - baseFee: double
+  --
+  + getBaseCost(): double
+}
+
+class MEDICATION {
+  - medicationCode: String
+  - medicationName: String
+  - unitCost: double
+  --
+  + getBaseCost(): double
+}
+
+class DIAGNOSTIC_SERVICE {
+  - testCode: String
+  - testName: String
+  - baseFee: double
+  --
+  + getBaseCost(): double
+}
+
+class ACCOMMODATION_CHARGE {
+  - roomNumber: String
+  - dailyRate: double
+  --
+  + getBaseCost(): double
+}
+
+' Association Class: Captures specific billing details for a service on an invoice
+class BILLED_SERVICE {
+  - quantity: int
+  - billedUnitCost: double
+  - itemTotal: double
+  --
+  + calculateItemTotal(): double
+}
+
+' ---------------------------------------
+' Billing Policy Strategy Classes
+' ---------------------------------------
+
+interface IBILLING_POLICY <<interface>> {
+  --
+  + calculateFinalAmount(invoice: DISCHARGE_INVOICE): double
+}
+
+class INSURED_BILLING_POLICY {
+  - reimbursementThreshold: double
+  - insurerSpecificRules: String ' e.g., JSON config for complex rules
+  --
+  + calculateFinalAmount(invoice: DISCHARGE_INVOICE): double
+}
+
+class GOVERNMENT_BILLING_POLICY {
+  - subsidyPercentage: double
+  - fixedSubsidyAmount: double
+  --
+  + calculateFinalAmount(invoice: DISCHARGE_INVOICE): double
+}
+
+class SELF_PAY_BILLING_POLICY {
+  --
+  + calculateFinalAmount(invoice: DISCHARGE_INVOICE): double
+}
+
+' ---------------------------------------
+' Policy Selection Factory
+' ---------------------------------------
+
+class BILLING_POLICY_FACTORY {
+  --
+  + getPolicy(patientCategory: PatientCategory): IBILLING_POLICY
+}
+
+' ---------------------------------------
+' Relationships
+' ---------------------------------------
+
+' Patient and Invoice (1 Patient can have 0 to many Invoices)
+PATIENT "1" -- "0..*" createdBy : DISCHARGE_INVOICE
+
+' Invoice and Billed Services (Composition: Invoice owns billed items)
+DISCHARGE_INVOICE "1" *-- "*" contains : BILLED_SERVICE
+BILLED_SERVICE "1" -- "1" references : SERVICE_ITEM
+
+' Service Item Hierarchy (Inheritance)
+SERVICE_ITEM <|-- MEDICAL_PROCEDURE
+SERVICE_ITEM <|-- MEDICATION
+SERVICE_ITEM <|-- DIAGNOSTIC_SERVICE
+SERVICE_ITEM <|-- ACCOMMODATION_CHARGE
+
+' Billing Policy Strategy (Realization)
+IBILLING_POLICY <|-- INSURED_BILLING_POLICY
+IBILLING_POLICY <|-- GOVERNMENT_BILLING_POLICY
+IBILLING_POLICY <|-- SELF_PAY_BILLING_POLICY
+
+' Invoice uses Billing Policy (Dependency for Strategy Pattern Context)
+DISCHARGE_INVOICE ..> IBILLING_POLICY : uses >
+
+' Billing Policy Factory (Dependency for dynamic policy instantiation)
+BILLING_POLICY_FACTORY ..> IBILLING_POLICY : creates >
+DISCHARGE_INVOICE ..> BILLING_POLICY_FACTORY : selects policy via >
+
+' Policies need Patient details for calculation
+IBILLING_POLICY ..> PATIENT : accesses >
+IBILLING_POLICY ..> INSURANCE_DETAILS : accesses >
+
+' ---------------------------------------
+' Explanatory Notes
+' ---------------------------------------
+
+note "Strategy Pattern: Allows billing policies to be dynamically\ninterchanged at runtime, supporting varying calculation rules\nfor different patient categories and easy integration of changes." as N_Strategy
+IBILLING_POLICY .. N_Strategy
+
+note "Strict Separation of Concerns:\n- Patient Information (PATIENT, INSURANCE_DETAILS)\n- Pricing Modules (SERVICE_ITEM hierarchy)\n- Billing Policies (IBILLING_POLICY hierarchy)\nEnsures extensibility and maintainability." as N_Separation
+PATIENT .. N_Separation
+SERVICE_ITEM .. N_Separation
+IBILLING_POLICY .. N_Separation
+
+note "BILLED_SERVICE acts as an association class,\ncapturing specific quantity and unit cost for a service\nas it appears on a particular DISCHARGE_INVOICE.\nThis handles historical pricing and auditing requirements." as N_BilledService
+BILLED_SERVICE .. N_BilledService
+
+note "PatientCategory enum simplifies policy determination." as N_Enum
+PatientCategory .. N_Enum
+
+@enduml
+```

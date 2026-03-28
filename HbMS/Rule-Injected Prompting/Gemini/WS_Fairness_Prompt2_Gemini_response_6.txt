@@ -1,0 +1,149 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+title Hospital Discharge Billing System - Class Diagram
+
+' Interface for the Billing Policy Strategy, enabling runtime policy replacement
+interface BillingPolicy {
+    + calculateLineItemAdjustment(item: BillLineItem, patient: Patient): decimal
+}
+
+' Represents a patient in the system
+class Patient {
+    - patientId: String
+    - name: String
+    - dateOfBirth: Date
+    - admissionDate: Date
+    - dischargeDate: Date
+    - patientCategory: String // e.g., "Insured", "Government", "SelfPay"
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getPatientCategory(): String
+    + assignBillingPolicy(policy: BillingPolicy): void
+}
+
+' Represents the final discharge bill for a patient
+class Invoice {
+    - invoiceId: String
+    - issueDate: Date
+    - totalAmount: decimal
+    - status: String // e.g., "Pending", "Paid", "Cancelled"
+    --
+    + generateInvoice(patient: Patient, serviceItems: List<ServiceItem>): Invoice
+    + addLineItem(item: BillLineItem): void
+    + calculateTotal(): void
+    + getInvoiceId(): String
+    + getTotalAmount(): decimal
+}
+
+' Represents a single itemized charge within an Invoice
+class BillLineItem {
+    - description: String
+    - quantity: int
+    - unitPrice: decimal // Base price from ServiceItem at time of billing
+    - baseAmount: decimal // quantity * unitPrice
+    - policyAdjustment: decimal // The adjustment amount (positive or negative) from the policy
+    - finalAmount: decimal // baseAmount + policyAdjustment
+    --
+    + calculateBaseAmount(): void
+    + applyPolicyAdjustment(adjustment: decimal): void
+    + getFinalAmount(): decimal
+    + getDescription(): String
+}
+
+' Represents a standardized billable service or item offered by the hospital
+class ServiceItem {
+    - itemId: String
+    - name: String
+    - category: String // "ClinicalProcedure", "Pharmaceutical", "LaboratoryDiagnostic", "RoomUtilization"
+    - basePrice: decimal // Standard base price for the service
+    --
+    + getItemId(): String
+    + getName(): String
+    + getCategory(): String
+    + getBasePrice(): decimal
+}
+
+' Encapsulates details of a patient's insurance coverage
+class InsuranceCoverage {
+    - policyNumber: String
+    - insurerName: String
+    - reimbursementCeiling: decimal // Maximum amount the insurer will pay
+    - coPaymentRate: decimal // e.g., 0.20 for 20% patient co-pay
+    - deductibleAmount: decimal // Amount patient pays before coverage activates
+    --
+    + getPolicyNumber(): String
+    + getReimbursementCeiling(): decimal
+    + getCoPaymentRate(): decimal
+    + getDeductibleAmount(): decimal
+}
+
+' Encapsulates details of government-sponsored subsidy programs
+class SubsidySchedule {
+    - programName: String
+    - subsidyRate: decimal // e.g., 0.50 for 50% subsidy
+    - maxSubsidyAmount: decimal // Maximum subsidy amount per item or total
+    --
+    + getProgramName(): String
+    + getSubsidyRate(): decimal
+    + getMaxSubsidyAmount(): decimal
+}
+
+' Concrete implementation for insurance-based billing
+class InsuranceBillingPolicy {
+    - coverage: InsuranceCoverage
+    --
+    + InsuranceBillingPolicy(coverage: InsuranceCoverage)
+    + calculateLineItemAdjustment(item: BillLineItem, patient: Patient): decimal
+}
+
+' Concrete implementation for government-sponsored patient billing
+class GovernmentBillingPolicy {
+    - schedule: SubsidySchedule
+    --
+    + GovernmentBillingPolicy(schedule: SubsidySchedule)
+    + calculateLineItemAdjustment(item: BillLineItem, patient: Patient): decimal
+}
+
+' Concrete implementation for self-paying patient billing (full charge)
+class SelfPayBillingPolicy {
+    + calculateLineItemAdjustment(item: BillLineItem, patient: Patient): decimal
+}
+
+' Relationships
+
+' Patient uses a specific BillingPolicy instance at runtime
+Patient "1" --> "1" BillingPolicy : uses >
+
+' An Invoice is composed of multiple BillLineItems
+Invoice "1" *-- "0..*" BillLineItem : contains
+
+' Each BillLineItem is derived from a specific ServiceItem, providing base pricing
+BillLineItem "0..*" --> "1" ServiceItem : basedOn >
+
+' An InsuranceBillingPolicy applies specific InsuranceCoverage details
+InsuranceBillingPolicy "1" --> "1" InsuranceCoverage : applies
+
+' A GovernmentBillingPolicy applies specific SubsidySchedule details
+GovernmentBillingPolicy "1" --> "1" SubsidySchedule : applies
+
+' Realization of the BillingPolicy interface by concrete policy classes
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' Notes for clarity and design justification
+note bottom of BillingPolicy : Implements the Strategy pattern for flexible and runtime-replaceable billing rules, adhering to the requirement for dynamic policy updates without structural redesign.
+note bottom of Patient : Patient's financial category is used to determine and assign the appropriate BillingPolicy instance.
+note bottom of Invoice : Orchestrates the bill generation process, aggregating line items and calculating the final total, ensuring consistency across patient types.
+note bottom of ServiceItem : Represents a standardized billable item with its base price, sourced from various domains (clinical, pharma, lab, room), supporting different pricing logics.
+note bottom of BillLineItem : Represents an individual charge entry, which is created from a ServiceItem and then adjusted by the assigned BillingPolicy to determine the final amount.
+note "This design achieves clear separation among patient data (Patient), pricing elements (ServiceItem), and billing policies (BillingPolicy hierarchy). It maintains extensibility to support continuously evolving regulatory demands and contractual obligations through the Strategy pattern and dedicated data classes." as N1
+N1 .. Invoice
+N1 .. BillingPolicy
+N1 .. ServiceItem
+
+@enduml
+```

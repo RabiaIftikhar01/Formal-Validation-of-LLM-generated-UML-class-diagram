@@ -1,0 +1,176 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+' --- Enums for clarity and type safety ---
+enum PatientTypeEnum {
+  INSURED
+  GOVERNMENT_SPONSORED
+  SELF_PAY
+}
+
+enum BillStatusEnum {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+' --- Core Entities: Patient and Bill ---
+class Patient {
+  - patientId: String
+  - name: String
+  - patientType: PatientTypeEnum
+  - admissionDate: Date
+  - dischargeDate: Date
+  + getPatientDetails(): String
+}
+
+class DischargeBill {
+  - billId: String
+  - issueDate: Date
+  - rawTotalAmount: BigDecimal = 0.0
+  - finalTotalAmount: BigDecimal = 0.0
+  - status: BillStatusEnum = DRAFT
+  - <<List>> billingEntries: BillingEntry
+  + calculateRawTotal(): BigDecimal
+  + addEntry(entry: BillingEntry)
+  + getBillingEntries(): List<BillingEntry>
+  + getFinalTotalAmount(): BigDecimal
+  + setFinalTotalAmount(amount: BigDecimal)
+  + getRawTotalAmount(): BigDecimal
+}
+
+' --- Billing Entries: Abstract base and concrete types ---
+abstract class BillingEntry {
+  - entryId: String
+  - description: String
+  - quantity: int
+  - unitPrice: BigDecimal ' The actual unit price applied for this specific entry (may differ from base PriceItem)
+  + calculateAmount(): BigDecimal
+  + getUnitPrice(): BigDecimal
+  + setUnitPrice(price: BigDecimal)
+}
+
+class ClinicalProcedureEntry extends BillingEntry {
+  - procedureCode: String
+  + calculateAmount(): BigDecimal
+}
+
+class PharmaceuticalEntry extends BillingEntry {
+  - drugCode: String
+  + calculateAmount(): BigDecimal
+}
+
+class LaboratoryEntry extends BillingEntry {
+  - testCode: String
+  + calculateAmount(): BigDecimal
+}
+
+class RoomUtilizationEntry extends BillingEntry {
+  - roomNumber: String
+  - dailyRate: BigDecimal
+  - numberOfDays: int
+  + calculateAmount(): BigDecimal
+}
+
+' --- Pricing Elements ---
+class PriceItem {
+  - priceItemId: String
+  - name: String
+  - basePrice: BigDecimal
+  - effectiveDate: Date
+  + getBasePrice(): BigDecimal
+}
+
+' --- Billing Policy (Strategy Pattern for extensibility) ---
+interface BillingPolicy {
+  + applyPolicy(bill: DischargeBill, patient: Patient): BigDecimal
+}
+
+class InsuranceBillingPolicy {
+  - insuranceCoverage: InsuranceCoverage
+  + applyPolicy(bill: DischargeBill, patient: Patient): BigDecimal
+}
+
+class GovernmentBillingPolicy {
+  - subsidySchedule: GovernmentSubsidySchedule
+  + applyPolicy(bill: DischargeBill, patient: Patient): BigDecimal
+}
+
+class SelfPayBillingPolicy {
+  + applyPolicy(bill: DischargeBill, patient: Patient): BigDecimal
+}
+
+' --- Policy-specific Configuration Data ---
+class InsuranceCoverage {
+  - planName: String
+  - coveragePercentage: double
+  - reimbursementCeiling: BigDecimal
+  - coPaymentAmount: BigDecimal
+  + getCoverageDetails(): String
+}
+
+class GovernmentSubsidySchedule {
+  - programName: String
+  - subsidyPercentage: double
+  - maxSubsidy: BigDecimal
+  + getScheduleDetails(): String
+}
+
+' --- Services and Factories (Orchestration Layer) ---
+class BillingService {
+  - billingPolicyFactory: BillingPolicyFactory
+  + generateDischargeBill(patient: Patient, rawEntries: List<BillingEntry>): DischargeBill
+}
+
+class BillingPolicyFactory {
+  + getPolicy(patientType: PatientTypeEnum): BillingPolicy
+}
+
+' --- Relationships ---
+Patient "1" "has" -- "0..*" DischargeBill
+DischargeBill "1" *-- "1..*" BillingEntry : comprises
+
+BillingEntry "1" --> "1" PriceItem : prices using
+
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+InsuranceBillingPolicy "1" "uses" --> "1" InsuranceCoverage
+GovernmentBillingPolicy "1" "uses" --> "1" GovernmentSubsidySchedule
+
+BillingService "1" --> "1" BillingPolicyFactory : creates policy via
+BillingService .right.> BillingPolicy : <<applies>>
+
+BillingPolicyFactory "1" .> "1" BillingPolicy : <<creates>>
+
+' Dependencies for Policy Application '
+BillingPolicy .down.> DischargeBill : operates on
+BillingPolicy .down.> Patient : considers
+
+' Enums relationships '
+PatientTypeEnum .up.> Patient
+BillStatusEnum .up.> DischargeBill
+
+' --- Notes for Clarity ---
+note "Strategy Pattern: Enables flexible billing behavior based on patient classification, allowing policies to be replaced at runtime without structural redesign." as N1
+BillingPolicy .. N1
+
+note "Factory Pattern: Dynamically determines and provides the correct BillingPolicy instance based on patient type." as N2
+BillingPolicyFactory .. N2
+
+note "BillingService orchestrates the entire bill generation process, including aggregating entries and applying the appropriate billing policy." as N3
+BillingService .. N3
+
+note "PriceItem defines base pricing elements. BillingEntry stores the specific unit price applied to an item on a bill, allowing for variations from the base price due to specific agreements or calculations." as N4
+PriceItem .. N4
+BillingEntry .. N4
+
+note "DischargeBill aggregates all BillingEntry items, calculating a raw total before a policy is applied, and then a final total after policy adjustments." as N5
+DischargeBill .. N5
+
+@enduml
+```

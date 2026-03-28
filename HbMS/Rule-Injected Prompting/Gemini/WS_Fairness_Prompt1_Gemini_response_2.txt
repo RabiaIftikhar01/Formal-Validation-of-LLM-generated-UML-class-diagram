@@ -1,0 +1,213 @@
+```plantuml
+@startuml
+' Styling and Types for better readability
+skinparam classAttributeFontColor #000000
+skinparam classAttributeFontStrikeoutColor #FF0000
+skinparam classAttributeFontUnderlineColor #0000FF
+skinparam classAttributeFontColor #888888
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam class {
+  BackgroundColor White
+  BorderColor #2A607C
+  ArrowColor #2A607C
+  HeaderBackgroundColor #ADD1B2
+}
+skinparam interface {
+  BackgroundColor White
+  BorderColor #2A607C
+  HeaderBackgroundColor #FFD700
+}
+skinparam note {
+  BackgroundColor #FFFFCC
+  BorderColor #999966
+}
+
+!define Money float ' Represents monetary values to avoid floating-point issues
+!define Decimal float ' Represents decimal values like percentages
+
+title Hospital Discharge Billing System - Class Diagram
+
+' Package for core billing entities
+package "Core Billing" {
+  enum BillStatus {
+    DRAFT
+    FINALIZED
+    PAID
+    CANCELLED
+  }
+
+  class Bill {
+    + billId: String
+    + generationDate: Date
+    + totalAmount: Money
+    + patientObligation: Money
+    + insuranceReimbursement: Money
+    + status: BillStatus
+    --
+    + addLineItem(item: BillLineItem): void
+    + calculateTotal(): void
+    + applyPolicy(policy: IBillingPolicy, patient: Patient): void
+  }
+
+  class BillLineItem {
+    + lineItemId: String
+    + description: String
+    + quantity: int
+    + unitPrice: Money
+    + totalLineAmount: Money
+    --
+    + calculateLineAmount(): void
+  }
+
+  Bill "1" o-- "0..*" BillLineItem : contains >
+  BillLineItem "1" --> "1" ChargeItem : references >
+}
+
+' Package for patient and visit related information
+package "Patient & Visit Management" {
+  enum PatientType {
+    IN_PATIENT
+    OUT_PATIENT
+  }
+
+  class Patient {
+    + patientId: String
+    + name: String
+    + dateOfBirth: Date
+    + patientType: PatientType
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): PatientType
+  }
+
+  class HospitalVisit {
+    + visitId: String
+    + admissionDate: Date
+    + dischargeDate: Date
+    + visitType: PatientType
+    --
+    + addChargeItem(item: ChargeItem): void
+    + getChargeItems(): List<ChargeItem>
+  }
+
+  Patient "1" o-- "0..*" HospitalVisit : has >
+  HospitalVisit "1" o-- "0..*" ChargeItem : records >
+  Bill "1" --> "1" Patient : for >
+}
+
+' Package for billing policies and their supporting data
+package "Billing Policies" {
+  interface IBillingPolicy <<Strategy>> {
+    + calculatePatientObligation(bill: Bill, patient: Patient): void
+  }
+  note top of IBillingPolicy : Policies are interchangeable at runtime (Strategy Pattern)\nfor different billing rules.
+
+  class SelfPayBillingPolicy implements IBillingPolicy {
+    + calculatePatientObligation(bill: Bill, patient: Patient): void
+  }
+
+  class InsuranceBillingPolicy implements IBillingPolicy {
+    + calculatePatientObligation(bill: Bill, patient: Patient): void
+  }
+
+  class GovernmentBillingPolicy implements IBillingPolicy {
+    + calculatePatientObligation(bill: Bill, patient: Patient): void
+  }
+
+  class InsuranceCoverage {
+    + policyNumber: String
+    + providerName: String
+    + reimbursementLimit: Money
+    + coPaymentRate: Decimal
+    --
+    + getReimbursementLimit(): Money
+    + getCoPaymentRate(): Decimal
+  }
+
+  class GovernmentProgram {
+    + programName: String
+    --
+    + getProgramName(): String
+  }
+
+  class SubsidizedRateCatalog {
+    + catalogId: String
+    + effectiveDate: Date
+    --
+    + getRate(chargeCode: String): Money
+  }
+
+  Patient "1" --> "0..1" InsuranceCoverage : has >
+  Patient "1" --> "0..1" GovernmentProgram : covered by >
+
+  InsuranceBillingPolicy "1" --> "1" InsuranceCoverage : uses >
+  GovernmentBillingPolicy "1" --> "1" SubsidizedRateCatalog : uses >
+}
+
+' Package for charge items and their associated pricing rules
+package "Charge Items & Pricing" {
+  interface IPricingRule <<Strategy>> {
+    + calculatePrice(basePrice: Money): Money
+  }
+  note top of IPricingRule : Pricing rules are independent for each charge type\nand can be updated without structural redesign.
+
+  class StandardPricingRule implements IPricingRule {
+    + calculatePrice(basePrice: Money): Money
+  }
+
+  class DiscountPricingRule implements IPricingRule {
+    + calculatePrice(basePrice: Money): Money
+  }
+
+  abstract class ChargeItem {
+    + chargeCode: String
+    + name: String
+    + description: String
+    + basePrice: Money
+    --
+    + getUnitPrice(): Money
+  }
+
+  ChargeItem "1" --> "1" IPricingRule : applies >
+
+  class Procedure extends ChargeItem {
+    + procedureCode: String
+  }
+
+  class Medication extends ChargeItem {
+    + drugCode: String
+  }
+
+  class DiagnosticTest extends ChargeItem {
+    + testCode: String
+  }
+
+  class RoomStay extends ChargeItem {
+    + roomNumber: String
+    + durationInDays: int
+  }
+}
+
+' Package for system services that orchestrate the billing process
+package "Services" {
+  class BillGenerator {
+    --
+    + generateBill(patient: Patient, visit: HospitalVisit): Bill
+    - determineBillingPolicy(patient: Patient): IBillingPolicy
+  }
+  note top of BillGenerator : Orchestrates bill generation,\napplying appropriate policies and pricing.
+
+  BillGenerator ..> IBillingPolicy : <<uses>>
+  BillGenerator ..> Bill : <<creates>>
+  BillGenerator ..> Patient : <<reads>>
+  BillGenerator ..> HospitalVisit : <<reads>>
+  BillGenerator ..> ChargeItem : <<reads>>
+  BillGenerator ..> BillLineItem : <<creates>>
+  BillGenerator ..> InsuranceCoverage : <<reads>>
+  BillGenerator ..> GovernmentProgram : <<reads>>
+}
+
+@enduml
+```

@@ -1,0 +1,199 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+title Hospital Discharge Billing System Class Diagram
+
+' ----------------------------------------------------------------------------------------------------
+' SECTION: Billing Policies (Strategy Pattern for dynamic interchangeability)
+' ----------------------------------------------------------------------------------------------------
+abstract class BillingPolicy {
+    + calculatePatientPortion(totalAmount: Money, insurance: InsuranceDetails): Money
+}
+
+class InsuredPatientPolicy {
+    + calculatePatientPortion(totalAmount: Money, insurance: InsuranceDetails): Money
+}
+
+class GovernmentProgramPolicy {
+    + subsidyRate: Percentage
+    + calculatePatientPortion(totalAmount: Money, insurance: InsuranceDetails): Money
+}
+
+class SelfFundedPolicy {
+    + calculatePatientPortion(totalAmount: Money, insurance: InsuranceDetails): Money
+}
+
+' Relationships for Billing Policies
+BillingPolicy <|-- InsuredPatientPolicy
+BillingPolicy <|-- GovernmentProgramPolicy
+BillingPolicy <|-- SelfFundedPolicy
+
+note "Strategy Pattern: Allows dynamic interchangeability of billing logic at runtime.\nNew policies can be added without modifying existing code." as N_BillingPolicyStrategy
+BillingPolicy .. N_BillingPolicyStrategy
+
+' ----------------------------------------------------------------------------------------------------
+' SECTION: Patient Information
+' ----------------------------------------------------------------------------------------------------
+class Patient {
+    + patientId: String
+    + name: String
+    + dateOfBirth: Date
+    + address: String
+    + patientCategory: PatientCategory <<enum>>
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getPatientCategory(): PatientCategory
+}
+
+enum PatientCategory {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+class InsuranceDetails {
+    + policyNumber: String
+    + provider: String
+    + coverageType: String
+    + deductible: Money
+    + coPayPercentage: Percentage
+    --
+    + getPolicyNumber(): String
+    + getCoverageAmount(totalCost: Money): Money
+}
+
+' Relationships for Patient Information
+Patient "1" -- "0..1" InsuranceDetails : has >
+
+' ----------------------------------------------------------------------------------------------------
+' SECTION: Treatment and Pricing (Extensible cost sources and pricing rules)
+' ----------------------------------------------------------------------------------------------------
+interface Treatment {
+    + getTreatmentId(): String
+    + getName(): String
+    + getBaseCost(): Money
+}
+
+abstract class PricingRule {
+    + applyRule(baseCost: Money, quantity: int): Money
+}
+
+' Concrete Treatments
+class MedicalProcedure implements Treatment {
+    + procedureCode: String
+    + description: String
+    + getBaseCost(): Money
+}
+
+class Medication implements Treatment {
+    + drugName: String
+    + dosage: String
+    + getBaseCost(): Money
+}
+
+class DiagnosticService implements Treatment {
+    + serviceCode: String
+    + serviceName: String
+    + getBaseCost(): Money
+}
+
+class Accommodation implements Treatment {
+    + roomNumber: String
+    + dailyRate: Money
+    + numberOfDays: int
+    + getBaseCost(): Money
+}
+
+' Concrete Pricing Rules
+class StandardPricingRule extends PricingRule {
+    + baseRate: Money
+    + applyRule(baseCost: Money, quantity: int): Money
+}
+
+class VolumeDiscountRule extends PricingRule {
+    + discountThreshold: int
+    + discountPercentage: Percentage
+    + applyRule(baseCost: Money, quantity: int): Money
+}
+
+' Relationships for Treatment and Pricing
+Treatment <|.. MedicalProcedure
+Treatment <|.. Medication
+Treatment <|.. DiagnosticService
+Treatment <|.. Accommodation
+
+PricingRule <|-- StandardPricingRule
+PricingRule <|-- VolumeDiscountRule
+
+Treatment "1" *-- "1" PricingRule : applies >
+
+note "Treatments represent heterogeneous cost sources.\nNew types can be added by implementing the Treatment interface." as N_TreatmentExtensibility
+Treatment .. N_TreatmentExtensibility
+
+note "Pricing rules define specific logic for how a treatment's base cost is adjusted.\nAllows for flexible pricing strategies." as N_PricingRule
+PricingRule .. N_PricingRule
+
+' ----------------------------------------------------------------------------------------------------
+' SECTION: Discharge Bill and Items (Aggregation of costs)
+' ----------------------------------------------------------------------------------------------------
+class DischargeBill {
+    + billId: String
+    + issueDate: Date
+    + totalGrossAmount: Money
+    + patientPortion: Money
+    + outstandingAmount: Money
+    --
+    + addInvoiceItem(item: InvoiceItem): void
+    + calculateGrossAmount(): Money
+    + calculatePatientPortion(policy: BillingPolicy, insurance: InsuranceDetails): void
+    + getBillSummary(): String
+}
+
+class InvoiceItem {
+    + itemId: String
+    + quantity: int
+    + unitPrice: Money
+    + totalCost: Money
+    --
+    + calculateItemCost(): void
+}
+
+' Relationships for Bill and Items
+Patient "1" --> "0..*" DischargeBill : generates
+DischargeBill "1" -- "1..*" InvoiceItem : contains >
+InvoiceItem "1" --> "1" Treatment : refersTo >
+
+note "InvoiceItem acts as an association class, capturing specific details (quantity, final price) for a Treatment instance within a DischargeBill." as N_InvoiceItem
+InvoiceItem .. N_InvoiceItem
+
+' ----------------------------------------------------------------------------------------------------
+' SECTION: Orchestration Service (Loose coupling and process flow)
+' ----------------------------------------------------------------------------------------------------
+class BillGenerationService {
+    - currentBillingPolicy: BillingPolicy
+    --
+    + generateDischargeBill(patient: Patient, treatments: List<Treatment>): DischargeBill
+    + setBillingPolicy(policy: BillingPolicy): void
+    - determinePolicy(patient: Patient): BillingPolicy
+}
+
+' Relationships for Orchestration Service
+BillGenerationService "1" o--> "1" BillingPolicy : uses >
+BillGenerationService ..> Patient : accesses
+BillGenerationService ..> Treatment : processes
+BillGenerationService ..> DischargeBill : creates
+
+note "BillGenerationService orchestrates the bill generation process, determining and applying the correct BillingPolicy based on patient type." as N_BillGenerationService
+BillGenerationService .. N_BillGenerationService
+
+' ----------------------------------------------------------------------------------------------------
+' General Notes
+' ----------------------------------------------------------------------------------------------------
+note "Money and Percentage are conceptual value types, representing specific domain objects or decimal types." as N_ValueTypes
+Money . N_ValueTypes
+Percentage . N_ValueTypes
+
+@enduml
+```

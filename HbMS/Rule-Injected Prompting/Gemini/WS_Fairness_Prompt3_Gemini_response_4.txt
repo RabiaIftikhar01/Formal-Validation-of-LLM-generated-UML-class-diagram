@@ -1,0 +1,234 @@
+```plantuml
+@startuml
+' Hospital Administration Platform - Discharge Invoice Billing System
+
+' Design Principles Applied:
+' - Simplicity & Readability: Focus on core responsibilities, use design patterns (Strategy) to manage complexity.
+' - Clear Naming: Classes are singular nouns (PascalCase), attributes/methods (camelCase).
+' - Responsibility-Driven Design: Each class has a well-defined purpose.
+' - Loose Coupling: Achieved through interfaces (IBillingPolicy) and separation of concerns (Patient data, Pricing, Policy logic).
+' - Extensibility: New service types or billing policies can be added with minimal impact.
+' - Maintainability: Reduced relationships, unidirectional associations where appropriate.
+' - Multiplicity: Clearly defined to reflect business rules.
+' - Explanatory Notes: Provide context and highlight design decisions.
+
+' ----------------------------------------------------------------------------------------------------
+' Enums: Define distinct categories and statuses for clarity and type safety.
+' ----------------------------------------------------------------------------------------------------
+enum PatientCategoryType {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+enum BillStatus {
+    PENDING
+    PAID
+    CANCELLED
+    AUDIT_REQUIRED
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Patient Information Module: Stores patient demographics and billing-relevant identifiers.
+' ----------------------------------------------------------------------------------------------------
+class Patient {
+    +patientId: String
+    +name: String
+    +dateOfBirth: Date
+    +category: PatientCategoryType ' Determines which billing policy applies
+    +insurancePolicyRef: String  ' Reference ID to an InsurancePolicy (optional)
+    +governmentProgramRef: String ' Reference ID to a GovernmentProgram (optional)
+    --
+    +getPatientId(): String
+    +getName(): String
+    +getCategory(): PatientCategoryType
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Bill Aggregation Module: Represents the final discharge invoice.
+' ----------------------------------------------------------------------------------------------------
+class Bill {
+    +billId: String
+    +issueDate: Date
+    +totalAmount: double
+    +status: BillStatus
+    --
+    +addBillItem(item: BillItem): void
+    +calculateTotalAmount(): double
+    +getBillId(): String
+    +getTotalAmount(): double
+    +getBillItems(): List<BillItem>
+}
+
+' Association Class: Captures specific details of a ServiceCharge on a particular Bill.
+' This avoids cluttering ServiceCharge with bill-specific attributes like quantity.
+class BillItem {
+    +quantity: int
+    +unitCost: double ' Base cost of the service at the time of billing
+    +calculatedItemCost: double ' Cost after any item-specific adjustments (before policy)
+    --
+    +calculateItemCost(): double ' May apply small discounts/surcharges per item
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Pricing Module: Defines the base costs and calculation logic for different services.
+' ----------------------------------------------------------------------------------------------------
+abstract class ServiceCharge {
+    +chargeId: String
+    +description: String
+    +baseCost: double ' Standard cost for one unit of the service
+    --
+    +getChargeId(): String
+    +getDescription(): String
+    +calculateBaseCost(quantity: int): double {abstract}
+}
+
+class ProcedureCharge extends ServiceCharge {
+    +procedureCode: String
+    --
+    +calculateBaseCost(quantity: int): double
+}
+
+class MedicationCharge extends ServiceCharge {
+    +medicationName: String
+    +dosage: String
+    --
+    +calculateBaseCost(quantity: int): double
+}
+
+class DiagnosticCharge extends ServiceCharge {
+    +testName: String
+    --
+    +calculateBaseCost(quantity: int): double
+}
+
+class AccommodationCharge extends ServiceCharge {
+    +roomType: String
+    +dailyRate: double
+    --
+    +calculateBaseCost(quantity: int): double
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Billing Policy Module (Strategy Pattern): Defines and implements different billing calculation rules.
+' This allows dynamic interchangeability and easy integration of new policies.
+' ----------------------------------------------------------------------------------------------------
+interface IBillingPolicy {
+    +calculateFinalAmount(patient: Patient, billItems: List<BillItem>): double
+}
+
+class InsuredBillingPolicy implements IBillingPolicy {
+    -insurancePolicy: InsurancePolicy
+    --
+    +InsuredBillingPolicy(policy: InsurancePolicy)
+    +calculateFinalAmount(patient: Patient, billItems: List<BillItem>): double
+}
+
+class GovernmentBillingPolicy implements IBillingPolicy {
+    -governmentProgram: GovernmentProgram
+    --
+    +GovernmentBillingPolicy(program: GovernmentProgram)
+    +calculateFinalAmount(patient: Patient, billItems: List<BillItem>): double
+}
+
+class SelfPayBillingPolicy implements IBillingPolicy {
+    +calculateFinalAmount(patient: Patient, billItems: List<BillItem>): double
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Policy Configuration Module: Stores parameters for insurance and government programs.
+' These are frequently updated without structural redesign.
+' ----------------------------------------------------------------------------------------------------
+class InsurancePolicy {
+    +policyId: String
+    +providerName: String
+    +coveragePercentage: double ' E.g., 80% of eligible costs covered
+    +deductibleAmount: double   ' Amount patient pays before coverage starts
+    +coPayAmount: double        ' Fixed amount patient pays per service
+    --
+    +getCoveragePercentage(): double
+    +getDeductibleAmount(): double
+    +getCoPayAmount(): double
+}
+
+class GovernmentProgram {
+    +programId: String
+    +programName: String
+    +subsidyPercentage: double ' E.g., 70% of eligible costs subsidized
+    +fixedSubsidyAmount: double ' Fixed subsidy for specific service types
+    --
+    +getSubsidyPercentage(): double
+    +getFixedSubsidyAmount(): double
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Orchestration Service: Manages the overall bill generation process.
+' ----------------------------------------------------------------------------------------------------
+class BillingService {
+    --
+    +generateDischargeBill(patient: Patient, serviceCharges: Map<ServiceCharge, int>): Bill
+    -determineBillingPolicy(patient: Patient): IBillingPolicy
+    -fetchInsurancePolicy(policyRef: String): InsurancePolicy
+    -fetchGovernmentProgram(programRef: String): GovernmentProgram
+    -createBillItems(serviceCharges: Map<ServiceCharge, int>): List<BillItem>
+}
+
+' ----------------------------------------------------------------------------------------------------
+' Relationships: Define how classes interact.
+' ----------------------------------------------------------------------------------------------------
+
+' Patient and Bill: A Bill is issued for one Patient.
+Patient "1" <-- "1" Bill : "has"
+
+' Bill and BillItem (Association Class): A Bill contains many BillItems.
+Bill "1" *-- "0..*" BillItem : "contains"
+
+' BillItem and ServiceCharge: A BillItem details one specific ServiceCharge.
+ServiceCharge "1" -- "1" BillItem : "details"
+
+' ServiceCharge Hierarchy: Specialization of different charge types.
+ServiceCharge <|-- ProcedureCharge
+ServiceCharge <|-- MedicationCharge
+ServiceCharge <|-- DiagnosticCharge
+ServiceCharge <|-- AccommodationCharge
+
+' Billing Policy Strategy Pattern: Concrete policies implement the interface.
+IBillingPolicy <|.. InsuredBillingPolicy
+IBillingPolicy <|.. GovernmentBillingPolicy
+IBillingPolicy <|.. SelfPayBillingPolicy
+
+' Policy-specific configurations: Concrete policies depend on their respective configuration data.
+InsuredBillingPolicy "1" -- "1" InsurancePolicy : "applies"
+GovernmentBillingPolicy "1" -- "1" GovernmentProgram : "applies"
+
+' BillingService Orchestration: Dependencies for the service to perform its task.
+BillingService --> Patient : "uses"
+BillingService --> IBillingPolicy : "determines & uses"
+BillingService --> Bill : "creates"
+BillingService --> InsurancePolicy : "fetches"
+BillingService --> GovernmentProgram : "fetches"
+BillingService --> ServiceCharge : "processes"
+BillingService --> BillItem : "creates"
+
+' ----------------------------------------------------------------------------------------------------
+' Explanatory Notes: Provide additional context and highlight key design aspects.
+' ----------------------------------------------------------------------------------------------------
+note "PatientCategoryType drives the selection of the appropriate IBillingPolicy." as PatientCatNote
+PatientCategoryType .. Patient
+
+note "BillItem serves as an association class to store quantity and calculated cost for a specific ServiceCharge on a Bill, avoiding attribute clutter in ServiceCharge itself." as BillItemNote
+BillItem .. N_BillItem
+
+note "The IBillingPolicy interface implements the Strategy Pattern, allowing billing logic to be dynamically swapped at runtime based on patient category." as StrategyNote
+IBillingPolicy .. N_Strategy
+
+note "BillingService acts as the Facade/Orchestrator for the billing process, ensuring strict separation between patient data, pricing, and policy logic." as BillingServiceNote
+BillingService .. N_Orchestration
+
+note "The separation of Patient, ServiceCharge, and IBillingPolicy modules ensures loose coupling and extensibility for future regulatory changes or new service types." as SeparationNote
+Patient .right. SeparationNote
+ServiceCharge .right. SeparationNote
+IBillingPolicy .right. SeparationNote
+
+@enduml
+```

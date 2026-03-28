@@ -1,0 +1,203 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide empty members
+skinparam classAttributeIconSize 0
+
+title Hospital Discharge Billing System - Class Diagram
+
+' --- Patient Data and Insurance ---
+package "Patient & Insurance" {
+  class Patient {
+    - String patientId
+    - String name
+    - Date dateOfBirth
+    - Date admissionDate
+    - Date dischargeDate
+    -- Operations --
+    + getPatientId() : String
+    + getName() : String
+    ' ... other getters as needed
+  }
+
+  class InsuranceDetails {
+    - String policyNumber
+    - String providerName
+    - String coveragePlan
+    - double copayAmount
+    - double deductible
+    -- Operations --
+    + getPolicyNumber() : String
+    + getProviderName() : String
+    + getCoveragePlan() : String
+    ' ... other getters as needed
+  }
+}
+
+' --- Billable Service Items and Pricing ---
+package "Service Items & Pricing" {
+  abstract class ServiceItem {
+    - String itemId
+    - String description
+    - double basePrice
+    -- Operations --
+    + {abstract} calculateCharge() : double
+    + getItemId() : String
+    + getDescription() : String
+    + getBasePrice() : double
+  }
+
+  class ClinicalProcedure extends ServiceItem {
+    - String procedureCode
+    - String procedureName
+    -- Operations --
+    + calculateCharge() : double
+  }
+
+  class Medication extends ServiceItem {
+    - String drugName
+    - String dosage
+    -- Operations --
+    + calculateCharge() : double
+  }
+
+  class LabTest extends ServiceItem {
+    - String testName
+    - String testCode
+    -- Operations --
+    + calculateCharge() : double
+  }
+
+  class RoomCharge extends ServiceItem {
+    - String roomNumber
+    - double dailyRate
+    - int daysStayed
+    -- Operations --
+    + calculateCharge() : double
+  }
+}
+
+' --- Billing Policies and Rules (Strategy Pattern) ---
+package "Billing Policies" {
+  interface BillingPolicy {
+    -- Operations --
+    + calculateFinalAmount(Invoice invoice, Patient patient) : void
+  }
+
+  class SelfPayBillingPolicy implements BillingPolicy {
+    -- Operations --
+    + calculateFinalAmount(Invoice invoice, Patient patient) : void
+  }
+
+  class GovernmentBillingPolicy implements BillingPolicy {
+    - SubsidySchedule subsidySchedule
+    -- Operations --
+    + calculateFinalAmount(Invoice invoice, Patient patient) : void
+  }
+
+  class InsuranceBillingPolicy implements BillingPolicy {
+    - CoveragePolicy coveragePolicy
+    -- Operations --
+    + calculateFinalAmount(Invoice invoice, Patient patient) : void
+  }
+
+  class CoveragePolicy {
+    - String policyName
+    - Map<String, Double> coverageRules ' e.g., serviceType -> coveragePercentage/limit
+    - double reimbursementCeiling
+    - String coPaymentModel
+    -- Operations --
+    + applyCoverage(InvoiceItem item, InsuranceDetails insuranceDetails) : double
+    + getCoverageRules() : Map<String, Double>
+  }
+
+  class SubsidySchedule {
+    - String scheduleName
+    - Map<String, Double> subsidyRates ' e.g., serviceType -> subsidyPercentage
+    -- Operations --
+    + applySubsidy(InvoiceItem item) : double
+    + getSubsidyRates() : Map<String, Double>
+  }
+}
+
+' --- Invoice and Billing Process ---
+package "Billing Core" {
+  class Invoice {
+    - String invoiceId
+    - Date invoiceDate
+    - double totalAmount ' Sum of actual charges before policy adjustments
+    - double patientAmountDue
+    - double insurerAmountDue
+    - String status
+    - Patient patient
+    - List<InvoiceItem> items
+    -- Operations --
+    + addItem(ServiceItem item, int quantity) : void
+    + calculateInitialTotal() : void
+    + getInvoiceId() : String
+    + getPatientAmountDue() : double
+    + getInsurerAmountDue() : double
+    + getPatient() : Patient
+    + getItems() : List<InvoiceItem>
+  }
+
+  class InvoiceItem {
+    - int quantity
+    - double unitPriceBilled
+    - double actualCharge ' unitPriceBilled * quantity
+    - double adjustedCharge ' after policy application
+    - String policyAdjustmentDetails
+    - ServiceItem serviceItem
+    -- Operations --
+    + getQuantity() : int
+    + getUnitPriceBilled() : double
+    + getActualCharge() : double
+    + getAdjustedCharge() : double
+    + setAdjustedCharge(double amount) : void
+    + getServiceItem() : ServiceItem
+    + setPolicyAdjustmentDetails(String details) : void
+  }
+
+  class BillingService {
+    - BillingPolicy currentBillingPolicy
+    -- Operations --
+    + generateDischargeBill(Patient patient) : Invoice
+    + determineBillingPolicy(Patient patient) : BillingPolicy
+    + setBillingPolicy(BillingPolicy policy) : void
+  }
+}
+
+' --- Relationships ---
+
+Patient "1" -- "0..1" InsuranceDetails : has
+
+Patient "1" o-- "0..*" ServiceItem : undergoes
+
+Invoice "1" --> "1" Patient : is for >
+Invoice "1" *-- "1..*" InvoiceItem : contains
+
+InvoiceItem "1" --> "1" ServiceItem : represents >
+
+BillingService "1" --> "1" BillingPolicy : uses >
+
+GovernmentBillingPolicy "1" --> "1" SubsidySchedule : applies >
+InsuranceBillingPolicy "1" --> "1" CoveragePolicy : uses >
+
+' --- Explanatory Notes ---
+note "Implements Strategy pattern for runtime-configurable billing logic based on patient classification." as N1
+BillingPolicy .. N1
+
+note "Association class to store billing-specific attributes (quantity, adjusted charges) for each ServiceItem within an Invoice." as N2
+InvoiceItem .. N2
+
+note "Orchestrates the billing process, determines and applies the appropriate BillingPolicy to generate an Invoice." as N3
+BillingService .l. N3
+
+note "Enforces separation of patient data, pricing elements, and billing policies for extensibility." as N4
+package "Patient & Insurance" .. N4
+package "Service Items & Pricing" .. N4
+package "Billing Policies" .. N4
+
+@enduml
+```

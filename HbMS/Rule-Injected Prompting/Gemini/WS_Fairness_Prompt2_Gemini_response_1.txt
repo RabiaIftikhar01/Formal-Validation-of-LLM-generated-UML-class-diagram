@@ -1,0 +1,186 @@
+@startuml
+' Global settings for readability and consistency
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam monochrome true
+skinparam shadowing false
+
+' Title and overall system context
+title Hospital Discharge Billing System
+note "This class diagram models the core components for patient discharge billing, emphasizing configurable policies, extensibility, and separation of concerns as per design principles. The Strategy pattern is applied for billing policies to allow runtime updates without structural redesign." as N1
+
+' Define Enums for clarity and type safety
+enum PatientClassificationType {
+    INSURED
+    GOVERNMENT
+    SELF_PAY
+}
+
+enum BillStatus {
+    PENDING
+    FINALIZED
+    PAID
+    CANCELLED
+}
+
+' 1. Patient Data Management
+class Patient {
+    - patientId: String
+    - name: String
+    - dateOfBirth: Date
+    - classification: PatientClassificationType
+    --
+    + getPatientId(): String
+    + getName(): String
+    + getClassification(): PatientClassificationType
+}
+
+' 2. Billing Core
+class Bill {
+    - billId: String
+    - billDate: Date
+    - totalAmount: BigDecimal
+    - status: BillStatus
+    --
+    + Bill(patient: Patient, date: Date)
+    + addEntry(entry: BillingEntry): void
+    + calculateTotal(): BigDecimal
+    + getBillId(): String
+    + getTotalAmount(): BigDecimal
+    + setTotalAmount(amount: BigDecimal): void
+    + getStatus(): BillStatus
+    + setStatus(status: BillStatus): void
+}
+
+abstract class BillingEntry {
+    - entryId: String
+    - description: String
+    - quantity: int
+    - unitPrice: BigDecimal
+    - calculatedAmount: BigDecimal
+    --
+    + BillingEntry(description: String, quantity: int, unitPrice: BigDecimal)
+    + getEntryId(): String
+    + getDescription(): String
+    + getQuantity(): int
+    + getUnitPrice(): BigDecimal
+    + getCalculatedAmount(): BigDecimal
+    + setCalculatedAmount(amount: BigDecimal): void
+}
+
+' Specific types of billing entries, inheriting from BillingEntry
+class ClinicalProcedureEntry extends BillingEntry {}
+class PharmaceuticalEntry extends BillingEntry {}
+class LaboratoryDiagnosticEntry extends BillingEntry {}
+class RoomUtilizationEntry extends BillingEntry {}
+
+' 3. Service Catalog (Pricing Elements)
+abstract class ServiceItem {
+    - itemId: String
+    - name: String
+    - basePrice: BigDecimal
+    --
+    + getItemId(): String
+    + getName(): String
+    + getBasePrice(): BigDecimal
+}
+
+' Specific types of service items, inheriting from ServiceItem
+class ClinicalService extends ServiceItem {}
+class Drug extends ServiceItem {} ' Renamed from PharmaceuticalItem for brevity
+class LabTest extends ServiceItem {}
+class RoomType extends ServiceItem {}
+
+' 4. Billing Policy (Strategy Pattern for extensibility)
+interface BillingPolicy {
+    + calculateBill(bill: Bill, patient: Patient): void
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    - insuranceCoverage: InsuranceCoverage
+    --
+    + InsuranceBillingPolicy(coverage: InsuranceCoverage)
+    + calculateBill(bill: Bill, patient: Patient): void
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - governmentProgram: GovernmentProgram
+    --
+    + GovernmentBillingPolicy(program: GovernmentProgram)
+    + calculateBill(bill: Bill, patient: Patient): void
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateBill(bill: Bill, patient: Patient): void
+}
+
+' 5. Policy Details and Configuration
+class InsuranceCoverage {
+    - coverageId: String
+    - providerName: String
+    - policyNumber: String
+    - coverageDetails: String
+    - reimbursementCeiling: BigDecimal
+    - coPaymentModel: String
+    --
+    + getCoverageId(): String
+    + getProviderName(): String
+    + getCoverageDetails(): String
+}
+
+class GovernmentProgram {
+    - programId: String
+    - programName: String
+    - subsidySchedule: String
+    --
+    + getProgramId(): String
+    + getProgramName(): String
+    + getSubsidySchedule(): String
+}
+
+' 6. Billing Orchestration
+class BillingService {
+    - policyFactory: BillingPolicyFactory
+    --
+    + BillingService(factory: BillingPolicyFactory)
+    + generateDischargeBill(patient: Patient, serviceItems: List<ServiceItem>): Bill
+    - determineAndApplyPolicy(bill: Bill, patient: Patient): void
+}
+
+class BillingPolicyFactory {
+    --
+    + getPolicy(patient: Patient): BillingPolicy
+}
+
+' Relationships
+
+' Patient and Bill
+Patient "1" -- "0..*" Bill : generates >
+
+' Bill and Billing Entries
+Bill "1" -- "1..*" BillingEntry : contains >
+
+' Billing Entry and Service Item
+BillingEntry "1" -- "1" ServiceItem : is_for >
+
+' Patient and Policy Details (Conditional associations based on classification)
+Patient "0..1" -- "1" InsuranceCoverage : has >
+Patient "0..1" -- "1" GovernmentProgram : enrolled_in >
+
+' Billing Policy implementations and their details
+InsuranceBillingPolicy "1" -- "1" InsuranceCoverage : uses >
+GovernmentBillingPolicy "1" -- "1" GovernmentProgram : uses >
+
+' Billing Service and Policy Management
+BillingService ..> BillingPolicy : uses (strategy)
+BillingService ..> BillingPolicyFactory : creates policy >
+BillingPolicyFactory ..> BillingPolicy : creates >
+
+' Notes for specific design points
+note right of BillingService : Orchestrates the billing process:\n1. Creates Bill and BillingEntries.\n2. Determines and applies the correct BillingPolicy.
+note right of BillingPolicy : Represents the Strategy pattern, enabling\nruntime replacement of billing logic.
+note "Patient classification determines\nwhich specific policy implementation\nis selected by the BillingPolicyFactory." as N2
+PatientClassificationType .. N2
+
+@enduml

@@ -1,0 +1,150 @@
+```plantuml
+@startuml
+!theme mars
+
+' Set global naming convention for classes to PascalCase, attributes/methods to camelCase.
+' Access specifiers: + public, - private, # protected
+
+title Hospital Discharge Billing System - Class Diagram
+
+' -------------------------------------------------------------------
+' Billing Policy Strategy Pattern
+' -------------------------------------------------------------------
+interface BillingPolicy {
+    + calculateCharge(entry: BillingEntry, patient: Patient): decimal
+}
+
+class InsuranceBillingPolicy {
+    - coverageRules: String
+    - coPaymentModel: String
+    - reimbursementCeilings: decimal
+    + calculateCharge(entry: BillingEntry, patient: Patient): decimal
+}
+
+class GovernmentBillingPolicy {
+    - subsidySchedule: String
+    + calculateCharge(entry: BillingEntry, patient: Patient): decimal
+}
+
+class SelfPayBillingPolicy {
+    + calculateCharge(entry: BillingEntry, patient: Patient): decimal
+}
+
+BillingPolicy <|.. InsuranceBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+note right of BillingPolicy : Strategy Pattern: Defines the interface for billing algorithms,\nallowing policies to be swapped at runtime without structural redesign.
+
+' -------------------------------------------------------------------
+' Patient and Insurance Data
+' -------------------------------------------------------------------
+class Patient {
+    - patientId: String
+    - name: String
+    - patientType: String ' e.g., "Insured", "Government", "SelfPay"
+    - admissionDate: Date
+    - dischargeDate: Date
+    + getPatientId(): String
+    + getPatientType(): String
+    + getInsurance(): Insurance
+}
+
+class Insurance {
+    - policyNumber: String
+    - providerName: String
+    - coverageDetails: String ' Simplified, could be a complex object/ruleset
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + getCoverageDetails(): String
+}
+
+Patient "1" -- "0..1" Insurance : has >
+note on link : A patient may or may not have insurance.
+
+' -------------------------------------------------------------------
+' Billing Core Entities
+' -------------------------------------------------------------------
+class DischargeBill {
+    - billId: String
+    - generationDate: Date
+    - totalAmount: decimal
+    - status: String
+    + addEntry(entry: BillingEntry): void
+    + calculateTotal(): void
+    + getBillId(): String
+    + getTotalAmount(): decimal
+}
+
+Patient "1" --> "0..*" DischargeBill : generates >
+note on link : A patient can generate multiple bills over time (e.g., multiple hospitalizations).
+
+class BillingEntry {
+    - entryId: String
+    - quantity: int
+    - unitPrice: decimal ' Base price of the item before policy application
+    - itemTotal: decimal ' Calculated price after policy application
+    + calculateItemTotal(): void
+    + getUnitPrice(): decimal
+    + getItemTotal(): decimal
+}
+
+DischargeBill "1" o-- "1..*" BillingEntry : contains
+note on link : A bill must contain at least one billing entry.
+
+' -------------------------------------------------------------------
+' Chargeable Items Hierarchy
+' -------------------------------------------------------------------
+abstract class ChargeableItem {
+    - itemId: String
+    - name: String
+    - basePrice: decimal
+    + getItemId(): String
+    + getName(): String
+    + getBasePrice(): decimal
+}
+
+class ClinicalProcedure extends ChargeableItem {
+    - procedureCode: String
+}
+
+class Pharmaceutical extends ChargeableItem {
+    - medicationId: String
+    - dosage: String
+}
+
+class LabDiagnostic extends ChargeableItem {
+    - testCode: String
+}
+
+class RoomUtilization extends ChargeableItem {
+    - roomNumber: String
+    - daysStayed: int
+}
+
+BillingEntry "1" --> "1" ChargeableItem : for >
+note on link : Each billing entry is for exactly one chargeable item.
+
+note bottom of ChargeableItem : Represents different types of services or products that can be billed.\nEach subclass may have specific attributes.
+
+' -------------------------------------------------------------------
+' Billing Orchestration Service
+' -------------------------------------------------------------------
+class BillingService {
+    - policySelector: PolicySelector
+    + generateDischargeBill(patient: Patient, items: List<ChargeableItem>): DischargeBill
+    ' Other operations for managing billing process
+}
+
+class PolicySelector {
+    + selectPolicy(patient: Patient): BillingPolicy
+}
+
+BillingService "1" --> "1" PolicySelector : uses >
+note on link : Encapsulates the logic to determine the appropriate billing policy for a given patient.
+
+BillingService ..> BillingPolicy : <<uses>>
+note on link : BillingService orchestrates bill generation, selects a policy via PolicySelector,\nand applies it to each billing entry.
+
+@enduml
+```

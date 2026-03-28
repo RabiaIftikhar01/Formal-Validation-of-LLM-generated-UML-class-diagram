@@ -1,0 +1,200 @@
+```plantuml
+@startuml
+' Global settings for clarity and consistency
+skinparam classAttributeIconSize 0
+hide empty members
+
+' ----------------------------------------------------------------------------------
+' Design Principles Adherence:
+' - Naming: Singular nouns, PascalCase for classes/interfaces/enums.
+' - Attributes & Operations: Carefully assigned, public/private access specifiers.
+' - Relationships: Clear, with multiplicity and descriptive names, favoring unidirectional.
+' - Loose Coupling: Achieved via Strategy Pattern for BillingPolicy and orchestration by BillGenerator.
+' - Extensibility: Strategy Pattern for policies, inheritance for services, and PriceCatalog for pricing.
+' - Simplicity: Focuses on core billing logic without over-complicating.
+' ----------------------------------------------------------------------------------
+
+' ----------------------------------------------------------------------------------
+' Core Billing Process Orchestration
+' The BillGenerator orchestrates the entire billing process.
+' ----------------------------------------------------------------------------------
+class BillGenerator {
+    - billingPolicyFactory: BillingPolicyFactory
+    - priceCatalog: PriceCatalog
+    + generateDischargeBill(patient: Patient): Bill
+}
+
+' ----------------------------------------------------------------------------------
+' Billing Policy (Strategy Pattern)
+' This design allows for configurable policies replaceable at runtime,
+' supporting updates without structural redesign.
+' ----------------------------------------------------------------------------------
+interface BillingPolicy {
+    ' Applies policy rules to a Bill, modifying its entries' billed amounts.
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class InsuranceBillingPolicy implements BillingPolicy {
+    - coverageRules: String ' e.g., JSON or XML representation of rules
+    - coPaymentModel: String ' e.g., fixed amount, percentage
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidySchedules: String ' e.g., table of subsidized rates
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    ' Charges the full amount, typically no complex logic
+    + applyPolicy(bill: Bill, patient: Patient): void
+}
+
+class BillingPolicyFactory {
+    ' Determines and provides the appropriate billing policy based on patient type.
+    + getPolicy(patientType: PatientType): BillingPolicy
+}
+
+enum PatientType {
+    INSURANCE
+    GOVERNMENT
+    SELF_PAY
+}
+
+' ----------------------------------------------------------------------------------
+' Patient Data
+' Represents the individual patient for whom the bill is generated.
+' ----------------------------------------------------------------------------------
+class Patient {
+    - patientId: String
+    - name: String
+    - patientType: PatientType
+    - insuranceDetails: String (optional) ' e.g., policy number, provider
+    + getPatientType(): PatientType
+}
+
+' ----------------------------------------------------------------------------------
+' Bill and Billing Entries
+' The Bill aggregates individual BillingEntry items. BillingEntry acts as an
+' association class, capturing specific details for a billed service instance.
+' ----------------------------------------------------------------------------------
+class Bill {
+    - billId: String
+    - billingDate: Date
+    - totalAmount: decimal
+    - patient: Patient
+    - entries: List<BillingEntry>
+    + addEntry(entry: BillingEntry): void
+    + calculateTotalAmount(): void ' Sums up billedAmount from entries
+    + getPatient(): Patient
+    + getEntries(): List<BillingEntry>
+}
+
+class BillingEntry {
+    - entryId: String
+    - description: String
+    - quantity: int
+    - unitPrice: decimal ' Base price for this specific entry from PriceCatalog
+    - billedAmount: decimal ' Final amount after policy application
+    - service: Service
+    + getUnitPrice(): decimal
+    + setBilledAmount(amount: decimal): void
+    + getService(): Service
+}
+
+' ----------------------------------------------------------------------------------
+' Services and Pricing
+' Represents the various types of services/treatments that can be billed.
+' Supports different pricing logic and attributes for each type.
+' ----------------------------------------------------------------------------------
+abstract class Service {
+    - serviceId: String
+    - name: String
+    - basePrice: decimal
+    + getBasePrice(): decimal
+}
+
+class ClinicalProcedure extends Service {
+    - procedureCode: String
+}
+
+class Pharmaceutical extends Service {
+    - drugName: String
+    - dosage: String
+}
+
+class LabDiagnostic extends Service {
+    - testCode: String
+}
+
+class RoomCharge extends Service {
+    - roomType: String
+    - dailyRate: decimal
+}
+
+class PriceCatalog {
+    ' Centralized repository/service for retrieving current service prices and definitions.
+    ' Supports dynamic updates to pricing elements.
+    + getBasePrice(serviceId: String): decimal
+    + getService(serviceId: String): Service
+}
+
+' ----------------------------------------------------------------------------------
+' Relationships
+' ----------------------------------------------------------------------------------
+
+' BillGenerator relationships
+BillGenerator "1" --> "1" BillingPolicyFactory : uses >
+BillGenerator "1" --> "1" PriceCatalog : uses >
+BillGenerator ..> "1" Bill : creates
+
+' Billing Policy relationships (Strategy Pattern)
+BillingPolicyFactory "1" --> "1" BillingPolicy : creates >
+BillingPolicyFactory "1" --> "1" PatientType : determinesPolicyFor >
+InsuranceBillingPolicy .up.|> BillingPolicy
+GovernmentBillingPolicy .up.|> BillingPolicy
+SelfPayBillingPolicy .up.|> BillingPolicy
+
+' Patient and Bill relationships (Unidirectional for loose coupling)
+Patient "1" <-- "0..*" Bill : isFor >
+
+' Bill and BillingEntry relationships (Composition: Bill owns its entries)
+Bill "1" *-- "1..*" BillingEntry : contains >
+
+' BillingEntry and Service relationships (Aggregation: BillingEntry refers to a Service)
+BillingEntry "1" o-- "1" Service : pertainsTo >
+
+' Service hierarchy (Inheritance)
+Service <|-- ClinicalProcedure
+Service <|-- Pharmaceutical
+Service <|-- LabDiagnostic
+Service <|-- RoomCharge
+
+' Bill and BillingPolicy interaction (mediated by BillGenerator)
+' BillGenerator retrieves a policy and then calls policy.applyPolicy(bill, patient)
+' This implies a dependency from BillingPolicy to Bill and Patient to perform its function.
+BillGenerator "1" --> "1" BillingPolicy : applies >
+BillingPolicy .right.> Bill : modifies >
+BillingPolicy .right.> Patient : reads >
+
+' ----------------------------------------------------------------------------------
+' Explanatory Notes (25. Add explanatory notes)
+' ----------------------------------------------------------------------------------
+note "Strategy Pattern for runtime policy selection and extensibility." as N1
+BillingPolicyFactory . N1
+BillingPolicy . N1
+
+note "Service hierarchy for different billing item types, each with specific attributes and base pricing." as N2
+Service . N2
+
+note "PriceCatalog centralizes retrieval of base prices and service definitions, supporting dynamic updates." as N3
+PriceCatalog . N3
+
+note "BillingEntry captures a specific billed instance of a Service, with its base price and the final billed amount after policy application." as N4
+BillingEntry . N4
+
+note "BillGenerator orchestrates the billing process: fetches services, creates entries, applies policies, and calculates final total." as N5
+BillGenerator . N5
+
+@enduml
+```

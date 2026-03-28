@@ -1,0 +1,262 @@
+@startuml
+' Global settings for consistency and readability
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam classFontStyle Bold
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 14
+
+' Overall explanation of the diagram's purpose and design principles (Instruction 25)
+note "This class diagram models the core components of the Hospital Discharge Billing System.\nIt emphasizes a modular and extensible design, particularly using the Strategy pattern for billing policies,\nand clear separation of concerns for patient data, chargeable services, and billing logic.\nThis approach supports evolving regulatory requirements and maintainability." as N1
+
+' Value Object for precise currency handling (Instruction 23, 26)
+class Money <<Value Object>> {
+    - amount: BigDecimal
+    - currency: Currency
+    --
+    + add(other: Money): Money
+    + subtract(other: Money): Money
+    + multiply(factor: BigDecimal): Money
+    + isGreaterThan(other: Money): boolean
+    + toString(): String
+}
+note bottom of Money
+  Represents a monetary value with currency,
+  ensuring precision in financial calculations.
+end note
+
+package "Billing Core" {
+    ' Represents a patient in the system (Instructions 2, 3, 4, 23)
+    class Patient {
+        - patientId: String
+        - name: String
+        - patientType: PatientType <<enum>>
+        - insuranceDetails: InsuranceDetails <<optional>>
+        --
+        + getPatientId(): String
+        + getName(): String
+        + getPatientType(): PatientType
+        + getInsuranceDetails(): InsuranceDetails
+    }
+
+    ' Defines types of patients for billing purposes (Instruction 7)
+    enum PatientType {
+        INSURED
+        GOVERNMENT_PROGRAM
+        SELF_PAY
+    }
+
+    ' Encapsulates insurance-specific information (Instruction 5)
+    class InsuranceDetails {
+        - providerName: String
+        - policyNumber: String
+        - coverageRules: Map<String, String> ' Configurable rules (e.g., deductibles, co-pays)
+        - coPaymentStructure: Map<String, Double>
+        - reimbursementLimits: Map<String, Double>
+        --
+        + getProviderName(): String
+        + getPolicyNumber(): String
+        + getCoverageRules(): Map<String, String>
+        + getCoPaymentStructure(): Map<String, Double>
+        + getReimbursementLimits(): Map<String, Double>
+    }
+
+    ' Represents the final discharge bill (Instructions 2, 5, 8)
+    class Bill {
+        - billId: String
+        - billDate: Date
+        - totalAmount: Money
+        - status: BillStatus <<enum>>
+        - patient: Patient
+        - billLineItems: List<BillLineItem>
+        --
+        + Bill(patient: Patient, billLineItems: List<BillLineItem>) ' Constructor (Instruction 10)
+        + calculateTotal(): void ' Implements core business logic (Instruction 10)
+        + addLineItem(item: BillLineItem): void
+        + getBillDetails(): String ' Access operation (Instruction 10)
+        + getTotalAmount(): Money
+        + getPatient(): Patient
+    }
+
+    ' Defines the possible states of a bill (Instruction 7)
+    enum BillStatus {
+        PENDING
+        GENERATED
+        PAID
+        CANCELLED
+    }
+
+    ' Represents a single itemized charge on a bill (Instruction 5, 20)
+    class BillLineItem {
+        - lineItemId: String
+        - description: String
+        - quantity: int
+        - unitPrice: Money
+        - lineItemTotal: Money
+        - chargeableService: ChargeableService
+        --
+        + BillLineItem(service: ChargeableService, quantity: int, unitPrice: Money) ' Constructor
+        + calculateLineItemTotal(): void ' Implements core business logic
+        + getLineItemTotal(): Money
+        + getChargeableService(): ChargeableService
+    }
+}
+
+package "Chargeable Services" {
+    ' Interface for any service or item that can incur a charge (Instructions 6, 21)
+    interface ChargeableService <<interface>> {
+        + getServiceId(): String
+        + getDescription(): String
+        + getBasePrice(): Money ' Represents the base price before policy application
+    }
+
+    ' Concrete implementations of ChargeableService (Instruction 5, 13)
+    class Procedure {
+        - procedureCode: String
+        - procedureName: String
+        - baseCost: Money
+        --
+        + Procedure(code: String, name: String, cost: Money)
+        + getServiceId(): String
+        + getDescription(): String
+        + getBasePrice(): Money
+    }
+
+    class Medication {
+        - medicationCode: String
+        - medicationName: String
+        - dosage: String
+        - baseCost: Money
+        --
+        + Medication(code: String, name: String, dosage: String, cost: Money)
+        + getServiceId(): String
+        + getDescription(): String
+        + getBasePrice(): Money
+    }
+
+    class DiagnosticTest {
+        - testCode: String
+        - testName: String
+        - baseCost: Money
+        --
+        + DiagnosticTest(code: String, name: String, cost: Money)
+        + getServiceId(): String
+        + getDescription(): String
+        + getBasePrice(): Money
+    }
+
+    class RoomOccupancy {
+        - roomId: String
+        - roomType: String
+        - dailyRate: Money
+        - startDate: Date
+        - endDate: Date
+        --
+        + RoomOccupancy(id: String, type: String, rate: Money, start: Date, end: Date)
+        + getServiceId(): String
+        + getDescription(): String
+        + getBasePrice(): Money ' Calculates total based on dailyRate and duration
+    }
+}
+
+package "Billing Policies" {
+    ' Strategy interface for different billing policies (Instructions 1, 11, 27)
+    interface BillingPolicy <<interface>> {
+        + applyPolicy(bill: Bill, patient: Patient): void
+        + getPolicyName(): String
+    }
+
+    ' Implements billing rules for insured patients (US-B2, Instruction 10)
+    class InsuranceBillingPolicy {
+        - policyName: String = "Insurance Billing"
+        - insuranceCoverageRules: Map<String, String> ' Loaded from configuration/DB
+        - coPaymentStructure: Map<String, Double>
+        - reimbursementLimits: Map<String, Double>
+        --
+        + InsuranceBillingPolicy(rules, copay, limits) ' Constructor
+        + applyPolicy(bill: Bill, patient: Patient): void ' Implements core business logic
+        + getPolicyName(): String
+        - calculateInsuredAmount(item: BillLineItem, patient: Patient): Money ' Helper (private to class)
+    }
+
+    ' Implements billing rules for government program patients (US-B3, Instruction 10)
+    class GovernmentProgramBillingPolicy {
+        - policyName: String = "Government Program Billing"
+        - subsidizedRates: Map<String, Double> ' Loaded from configuration/DB
+        --
+        + GovernmentProgramBillingPolicy(rates) ' Constructor
+        + applyPolicy(bill: Bill, patient: Patient): void ' Implements core business logic
+        + getPolicyName(): String
+        - applySubsidizedRate(item: BillLineItem): Money ' Helper (private to class)
+    }
+
+    ' Implements billing rules for self-paying patients (US-B4, Instruction 10)
+    class SelfPayBillingPolicy {
+        - policyName: String = "Self-Pay Billing"
+        --
+        + SelfPayBillingPolicy() ' Constructor
+        + applyPolicy(bill: Bill, patient: Patient): void ' Implements core business logic (full amount)
+        + getPolicyName(): String
+    }
+}
+
+package "Billing Orchestration" {
+    ' Orchestrates the bill generation process, using a BillingPolicy (US-P1, US-SYS2, Instruction 27)
+    class BillGenerator {
+        - billingPolicy: BillingPolicy
+        --
+        + BillGenerator(policy: BillingPolicy) ' Constructor
+        + generateDischargeBill(patient: Patient, services: List<ChargeableService>): Bill ' Implements core business logic
+        + setBillingPolicy(policy: BillingPolicy): void ' Allows runtime policy changes (Instruction 9)
+        - determineBillingPolicy(patient: Patient): BillingPolicy ' Helper for policy selection (US-SYS1, Instruction 10)
+    }
+}
+
+' =====================================================================================
+' Relationships (Instructions 11, 12, 15, 16, 17, 18, 19, 21, 27)
+' =====================================================================================
+
+' Patient and InsuranceDetails
+Patient "1" --> "0..1" InsuranceDetails : has >
+Patient "1" --> "1" PatientType : has type >
+
+' Bill and BillLineItem (Composition - Bill owns line items)
+Bill "1" *-- "0..*" BillLineItem : contains >
+
+' BillLineItem and ChargeableService (Association - line item charges for a service)
+BillLineItem "1" -- "1" ChargeableService : charges for >
+
+' ChargeableService inheritance (Generalization)
+ChargeableService <|-- Procedure
+ChargeableService <|-- Medication
+ChargeableService <|-- DiagnosticTest
+ChargeableService <|-- RoomOccupancy
+
+' BillingPolicy strategy implementations (Generalization)
+BillingPolicy <|-- InsuranceBillingPolicy
+BillingPolicy <|-- GovernmentProgramBillingPolicy
+BillingPolicy <|-- SelfPayBillingPolicy
+
+' BillGenerator uses BillingPolicy (Aggregation - Strategy pattern for loose coupling)
+BillGenerator "1" o-- "1" BillingPolicy : applies >
+
+' BillGenerator orchestrates the creation of a Bill for a Patient and Services
+BillGenerator .up.> Bill : creates >
+BillGenerator .up.> Patient : processes >
+BillGenerator .up.> ChargeableService : consumes >
+
+' Bill and Patient association (Unidirectional - Bill knows its patient)
+Bill "1" --> "1" Patient : applies to >
+
+' Bill and BillStatus enum association
+Bill "1" --> "1" BillStatus : has >
+
+' Note for BillGenerator's policy determination logic (Instruction 25)
+note right of BillGenerator::determineBillingPolicy
+  This helper dynamically determines and
+  instantiates the appropriate BillingPolicy
+  (e.g., InsuranceBillingPolicy, SelfPayBillingPolicy)
+  based on the Patient's type and insurance details.
+end note
+
+@enduml

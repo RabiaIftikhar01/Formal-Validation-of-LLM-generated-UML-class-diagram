@@ -1,0 +1,223 @@
+@startuml
+' Global settings for consistency and readability
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam package {
+  BorderColor #307D7E
+  BackgroundColor #E0F2F1
+  FontColor #307D7E
+}
+skinparam class {
+  BorderColor #0077B6
+  BackgroundColor #E0F2F1
+  AttributeFontColor #023E8A
+  MethodFontColor #0077B6
+}
+skinparam interface {
+  BorderColor #7B2CBF
+  BackgroundColor #EDE7F6
+  FontColor #7B2CBF
+}
+skinparam enum {
+  BorderColor #9C27B0
+  BackgroundColor #F3E5F5
+  FontColor #9C27B0
+}
+
+' Naming convention: PascalCase for classes, camelCase for attributes/methods
+' Access specifiers: - (private), + (public), # (protected), ~ (package)
+
+title Hospital Discharge Billing Class Diagram
+
+note "This diagram models the core components for processing discharge bills,\nfocusing on extensibility for billing policies and charge types.\nIt adheres to the Strategy pattern for billing policies to allow runtime interchangeability\nand loose coupling between different system concerns." as N_Intro
+
+package "Patient Management" {
+  class Patient {
+    - patientId: String
+    - name: String
+    - dateOfBirth: Date
+    - admissionDate: Date
+    - dischargeDate: Date
+    - patientType: PatientType
+    + getPatientId(): String
+    + getName(): String
+    + getPatientType(): PatientType
+  }
+
+  enum PatientType {
+    IN_PATIENT
+    OUT_PATIENT
+  }
+
+  class InsuranceDetails {
+    - policyNumber: String
+    - providerName: String
+    - groupNumber: String
+    - memberId: String
+    + getPolicyNumber(): String
+    + getProviderName(): String
+  }
+
+  class GovernmentProgramEnrollment {
+    - programName: String
+    - enrollmentId: String
+    + getProgramName(): String
+    + getEnrollmentId(): String
+  }
+
+  Patient "1" -- "0..1" InsuranceDetails : has >
+  Patient "1" -- "0..1" GovernmentProgramEnrollment : enrolls in >
+
+  note right of PatientType : Differentiates billing needs for patients.
+}
+
+package "Charge Management" {
+  abstract class Charge {
+    - chargeId: String
+    - description: String
+    - baseAmount: Money
+    - recordedDate: Date
+    + getChargeId(): String
+    + getDescription(): String
+    + getBaseAmount(): Money
+  }
+
+  class ProcedureCharge extends Charge {
+    - procedureCode: String
+    + getProcedureCode(): String
+  }
+
+  class MedicationCharge extends Charge {
+    - medicationName: String
+    - dosage: String
+    + getMedicationName(): String
+  }
+
+  class DiagnosticTestCharge extends Charge {
+    - testCode: String
+    - facility: String
+    + getTestCode(): String
+  }
+
+  class RoomCharge extends Charge {
+    - roomNumber: String
+    - daysOccupied: int
+    + getRoomNumber(): String
+    + getDaysOccupied(): int
+  }
+
+  class Money {
+    - amount: BigDecimal
+    - currency: String ' e.g., "USD"
+    + add(Money): Money
+    + subtract(Money): Money
+    + getValue(): BigDecimal
+    + getCurrency(): String
+  }
+
+  Charge *-- "1" Money : has baseAmount >
+  BillItem *-- "1" Money : has unitPrice >
+  BillItem *-- "1" Money : has itemAmount >
+  Bill *-- "1" Money : has totalAmount >
+  InsuranceCoverageRule *-- "1" Money : has reimbursementLimit >
+  SubsidizedRateRule *-- "1" Money : has fixedRate >
+
+  note right of Money : Value Object for robust currency handling.
+}
+
+package "Billing Policies and Rules" {
+  interface BillingPolicy {
+    + calculatePatientPortion(bill: Bill, charges: List<Charge>, patient: Patient): Money
+  }
+
+  class InsuranceBillingPolicy implements BillingPolicy {
+    - insuranceCoverageRule: InsuranceCoverageRule
+    + calculatePatientPortion(bill: Bill, charges: List<Charge>, patient: Patient): Money
+  }
+
+  class GovernmentBillingPolicy implements BillingPolicy {
+    - subsidizedRateRule: SubsidizedRateRule
+    + calculatePatientPortion(bill: Bill, charges: List<Charge>, patient: Patient): Money
+  }
+
+  class SelfPayBillingPolicy implements BillingPolicy {
+    + calculatePatientPortion(bill: Bill, charges: List<Charge>, patient: Patient): Money
+  }
+
+  class InsuranceCoverageRule {
+    - ruleId: String
+    - coverageDetails: String
+    - reimbursementLimit: Money
+    - coPaymentStructure: String
+    + applyCoverage(charge: Charge, patient: Patient): Money
+    + getReimbursementLimit(): Money
+  }
+
+  class SubsidizedRateRule {
+    - ruleId: String
+    - programName: String
+    - fixedRate: Money
+    + applySubsidizedRate(charge: Charge, patient: Patient): Money
+    + getFixedRate(): Money
+  }
+
+  InsuranceBillingPolicy "1" *-- "1" InsuranceCoverageRule : applies >
+  GovernmentBillingPolicy "1" *-- "1" SubsidizedRateRule : applies >
+
+  enum BillingPolicyType {
+    INSURANCE
+    GOVERNMENT
+    SELF_PAY
+  }
+
+  note right of BillingPolicy : Strategy Pattern: policies are interchangeable at runtime.
+}
+
+package "Billing Core" {
+  class Bill {
+    - billId: String
+    - generationDate: Date
+    - totalAmount: Money
+    - patient: Patient
+    - billItems: List<BillItem>
+    + addBillItem(item: BillItem): void
+    + calculateTotalAmount(): void
+    + getBillDetails(): String
+  }
+
+  class BillItem {
+    - description: String
+    - unitPrice: Money
+    - quantity: int
+    - itemAmount: Money
+    - charge: Charge
+    + calculateItemAmount(): void
+    + getDescription(): String
+  }
+
+  class BillingService {
+    - patientTypeClassifier: PatientTypeClassifier
+    - currentBillingPolicy: BillingPolicy
+    + generateDischargeBill(patient: Patient, charges: List<Charge>): Bill
+    + setBillingPolicy(policy: BillingPolicy): void
+    + getBillingPolicy(): BillingPolicy
+  }
+
+  class PatientTypeClassifier {
+    + determineBillingPolicyType(patient: Patient): BillingPolicyType
+  }
+
+  Bill "1" *-- "1..*" BillItem : contains >
+  Bill "1" --> "1" Patient : for >
+  BillItem "1" --> "1" Charge : based on >
+  Patient "1" -- "0..*" Charge : incurs >
+
+  BillingService "1" --> "1" PatientTypeClassifier : uses >
+  BillingService "1" --> "1" BillingPolicy : <<uses>> strategy >
+
+  note right of BillingService : Orchestrates the billing process,\ndetermines and applies the correct policy.
+}
+
+@enduml

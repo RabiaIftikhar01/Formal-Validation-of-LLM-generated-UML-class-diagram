@@ -1,0 +1,203 @@
+```plantuml
+@startuml
+!theme plain
+
+' Style for interfaces and abstract classes for consistency
+skinparam class {
+    BackgroundColor White
+    BorderColor #A0A0A0
+    ArrowColor #A0A0A0
+}
+skinparam interface {
+    BackgroundColor White
+    BorderColor #A0A0A0
+    ArrowColor #A0A0A0
+}
+skinparam abstract {
+    BackgroundColor White
+    BorderColor #A0A0A0
+    ArrowColor #A0A0A0
+}
+
+' Title and general explanatory notes for clarity and self-documentation
+title Hospital Billing System - Class Diagram
+note "This diagram models the core components for patient discharge billing, emphasizing extensibility and maintainability.\nIt utilizes the Strategy pattern for billing policies and a clear separation of concerns to handle dynamic regulatory changes and diverse pricing rules." as N1
+
+' Enums for patient categorization
+enum PatientCategoryEnum {
+    INSURED
+    GOVERNMENT_BENEFICIARY
+    SELF_FUNDED
+}
+
+' Core Classes
+class Patient {
+    - patientId: String
+    - name: String
+    - address: String
+    - patientCategory: PatientCategoryEnum
+    --
+    + Patient(patientId: String, name: String, address: String, category: PatientCategoryEnum)
+    + getPatientId(): String
+    + getName(): String
+    + getPatientCategory(): PatientCategoryEnum
+    + updateAddress(newAddress: String): void
+    + getInsuranceDetails(): InsuranceDetails ' Returns associated InsuranceDetails if patient is INSURED, null otherwise
+}
+
+class InsuranceDetails {
+    - policyNumber: String
+    - providerName: String
+    - coveragePercentage: decimal
+    - deductible: decimal
+    - coPay: decimal
+    --
+    + InsuranceDetails(policyNum: String, provider: String, coverage: decimal, ded: decimal, coPay: decimal)
+    + getPolicyNumber(): String
+    + getProviderName(): String
+    + getCoveragePercentage(): decimal
+    + getDeductible(): decimal
+    + getCoPay(): decimal
+}
+
+abstract class Service {
+    - serviceId: String
+    - name: String
+    - basePrice: decimal ' A default or base value; specific subclasses may interpret or override
+    --
+    + Service(serviceId: String, name: String, basePrice: decimal)
+    + getServiceId(): String
+    + getName(): String
+    + getBasePrice(): decimal
+    + getPricePerUnit(): decimal {abstract} ' Provides the calculated base unit cost for this service type
+}
+
+class MedicalProcedure extends Service {
+    - procedureCode: String
+    --
+    + MedicalProcedure(id: String, name: String, price: decimal, code: String)
+    + getPricePerUnit(): decimal
+}
+
+class Medication extends Service {
+    - dosage: String
+    --
+    + Medication(id: String, name: String, price: decimal, dosage: String)
+    + getPricePerUnit(): decimal
+}
+
+class DiagnosticService extends Service {
+    - testCode: String
+    --
+    + DiagnosticService(id: String, name: String, price: decimal, code: String)
+    + getPricePerUnit(): decimal
+}
+
+class AccommodationCharge extends Service {
+    - roomType: String
+    - dailyRate: decimal
+    --
+    + AccommodationCharge(id: String, name: String, dailyRate: decimal, roomType: String)
+    + getPricePerUnit(): decimal ' Returns dailyRate as the unit price
+}
+
+class BillItem {
+    - itemId: String
+    - quantity: int
+    - unitPrice: decimal ' Price obtained from service.getPricePerUnit()
+    - rawTotal: decimal ' Calculated as quantity * unitPrice
+    - adjustedTotal: decimal ' Total after applying the billing policy
+    - service: Service
+    --
+    + BillItem(service: Service, quantity: int)
+    + getItemId(): String
+    + getQuantity(): int
+    + getUnitPrice(): decimal
+    + getRawTotal(): decimal
+    + getAdjustedTotal(): decimal
+    + getService(): Service
+    + applyPolicyAdjustment(policy: BillingPolicy, patient: Patient): void ' Applies policy to set adjustedTotal
+}
+
+class DischargeBill {
+    - billId: String
+    - generationDate: Date
+    - totalAmountDue: decimal
+    - status: String ' e.g., "Pending", "Finalized", "Paid"
+    - patient: Patient
+    - billingPolicy: BillingPolicy
+    - billItems: List<BillItem>
+    --
+    + DischargeBill(patient: Patient, policy: BillingPolicy)
+    + addService(service: Service, quantity: int): void ' Creates a BillItem and adds it
+    + calculateTotalAmountDue(): void ' Orchestrates policy application and sums totals
+    + getBillDetails(): String
+    + finalizeBill(): void
+    + getTotalAmountDue(): decimal
+    - applyBillingPolicyToItems(): void ' Helper to apply policy to each BillItem
+}
+
+interface BillingPolicy {
+    + calculateAdjustedAmount(rawItemTotal: decimal, patient: Patient, service: Service): decimal
+}
+
+class InsuredBillingPolicy implements BillingPolicy {
+    + calculateAdjustedAmount(rawItemTotal: decimal, patient: Patient, service: Service): decimal
+}
+
+class GovernmentBillingPolicy implements BillingPolicy {
+    + calculateAdjustedAmount(rawItemTotal: decimal, patient: Patient, service: Service): decimal
+}
+
+class SelfPayBillingPolicy implements BillingPolicy {
+    + calculateAdjustedAmount(rawItemTotal: decimal, patient: Patient, service: Service): decimal
+}
+
+
+' Relationships
+
+' Patient and InsuranceDetails: A patient may optionally have insurance details.
+Patient "1" -- "0..1" InsuranceDetails : has >
+
+' DischargeBill and Patient: A bill is generated for one patient.
+DischargeBill "0..*" -- "1" Patient : for >
+
+' DischargeBill and BillItem: A bill is composed of multiple bill items (composition).
+DischargeBill "1" *-- "0..*" BillItem : contains >
+
+' BillItem and Service: Each bill item refers to one specific service type.
+BillItem "0..*" -- "1" Service : applies >
+
+' DischargeBill and BillingPolicy: A bill uses a specific billing policy (aggregation, assigned at runtime).
+DischargeBill "1" o-- "1" BillingPolicy : uses >
+
+' Inheritance for Service types: Specialized services inherit from the abstract Service.
+Service <|-- MedicalProcedure
+Service <|-- Medication
+Service <|-- DiagnosticService
+Service <|-- AccommodationCharge
+
+' Realization for BillingPolicy: Concrete policies implement the BillingPolicy interface (Strategy pattern).
+BillingPolicy <|.. InsuredBillingPolicy
+BillingPolicy <|.. GovernmentBillingPolicy
+BillingPolicy <|.. SelfPayBillingPolicy
+
+' Explanatory notes for key functionalities
+note left of DischargeBill::calculateTotalAmountDue
+  1. Iterates through all BillItems.
+  2. For each BillItem, calls applyPolicyAdjustment.
+  3. Sums up the adjustedTotal of all BillItems.
+end note
+
+note right of BillingPolicy
+  This interface implements the Strategy pattern,
+  allowing billing rules to be dynamically
+  interchanged at runtime without altering
+  the DischargeBill structure.
+end note
+
+note "The design ensures strict separation between patient information, pricing modules (via Service hierarchy), and billing policies.\nThis architecture is highly extensible, allowing new service types and billing policies to be added with minimal impact on existing code, addressing shifting regulatory conditions." as N2
+N2 .down.> DischargeBill
+
+@enduml
+```

@@ -1,0 +1,254 @@
+```plantuml
+@startuml
+!pragma layout smetana
+
+hide empty members
+
+' Design Practices and Instructions followed:
+' 1. Simplicity: Core components identified, logical separation into cohesive modules.
+' 2. Naming: PascalCase for classes, singular nouns, no spaces, e.g., Patient, Bill.
+' 3. Short Names: Descriptive and concise class names.
+' 4. Consistency: Naming conventions applied uniformly across classes, attributes, and methods.
+' 5. Attribute Assignment: Carefully assigned attributes to relevant classes, avoiding bloated structures.
+' 6. Operations: Each class encapsulates behavior with meaningful operations.
+' 7. No operation classes: Avoided; all classes have defined responsibilities and methods.
+' 8. Manageable Responsibilities: Responsibilities are clearly divided (e.g., BillingService for orchestration, PricingEngine for pricing, Strategy classes for policies).
+' 9. Access Methods: Public getters/setters are provided for attributes that need to be accessed or modified externally.
+' 10. Operation Categories: Access specifiers (+ for public, - for private) categorize operations based on usage.
+' 11. Reduced Relationships: Only essential relationships are modeled to reduce complexity and improve maintainability.
+' 12. Unidirectional Associations: Preferred where logical and sufficient (e.g., Bill -> Patient, ChargeLineItem -> Service).
+' 13. No Multi-level Inheritance: Inheritance is kept to a single level for the Service hierarchy.
+' 14. No Circular Dependency: Logical separation of concerns helps prevent circular dependencies.
+' 15. Multiplicity: Clearly defined for all associations, representing business rules (e.g., "1" for mandatory, "*" for many).
+' 16. Relationship/Role Names: Used where they add clarity and explain the purpose of the relationship (e.g., "isFor", "contains").
+' 18. Relationship Names (Verbs): Used as verbs or verb phrases.
+' 20. Link Elements/Association Class: ChargeLineItem acts as an association class capturing details between Bill and Service.
+' 21. Identify Relationships: Relationships are clearly identified and typed (association, inheritance, implementation).
+' 22. Standard UML Notations: Standard PlantUML notations used for classes, interfaces, inheritance, and associations.
+' 23. Descriptive Names: Classes, attributes, and methods are named descriptively to clearly convey their purpose.
+' 24. Consistent Style: Uniform naming conventions and layout enhance readability and understanding.
+' 25. Explanatory Notes: Added notes to clarify complex sections, design patterns, and workflow.
+' 26. Avoid Redundancy: Removed redundant attributes (e.g., patientId from Bill, relying on association).
+' 27. Loose Coupling: Achieved through the use of Strategy patterns for billing and pricing, and dedicated service classes, promoting modularity and extensibility.
+
+' --- Enums for clarity and type safety ---
+enum PatientType {
+  Inpatient
+  Outpatient
+}
+
+enum BillingPreference {
+  Insurance
+  Government
+  SelfPay
+}
+
+enum BillStatus {
+  Pending
+  Generated
+  Paid
+  Canceled
+}
+
+enum ServiceType {
+  Procedure
+  Medication
+  DiagnosticTest
+  RoomOccupancy
+}
+
+' --- Patient and related details ---
+class Patient {
+  - patientId: String
+  - name: String
+  - dateOfBirth: Date
+  - contactInfo: String
+  - patientType: PatientType
+  - billingPreference: BillingPreference
+  --
+  + getPatientId(): String
+  + getName(): String
+  + getPatientType(): PatientType
+  + getBillingPreference(): BillingPreference
+  + getInsuranceDetails(): InsuranceDetails
+  + getGovernmentProgramDetails(): GovernmentProgramDetails
+  + setInsuranceDetails(details: InsuranceDetails): void
+  + setGovernmentProgramDetails(details: GovernmentProgramDetails): void
+}
+
+class InsuranceDetails {
+  - policyNumber: String
+  - providerName: String
+  - coverageRules: String
+  - reimbursementLimits: BigDecimal
+  - coPaymentStructure: BigDecimal
+  --
+  + getPolicyNumber(): String
+  + getProviderName(): String
+  + getCoverageRules(): String
+  + getReimbursementLimits(): BigDecimal
+  + getCoPaymentStructure(): BigDecimal
+}
+
+class GovernmentProgramDetails {
+  - programName: String
+  - subsidizedRates: Map<ServiceType, BigDecimal>
+  - eligibilityCriteria: String
+  --
+  + getProgramName(): String
+  + getSubsidizedRate(serviceType: ServiceType): BigDecimal
+}
+
+Patient "1" --> "0..1" InsuranceDetails : has
+Patient "1" --> "0..1" GovernmentProgramDetails : has
+
+' --- Billing Core ---
+class Bill {
+  - billId: String
+  - billDate: Date
+  - totalAmount: BigDecimal
+  - patientResponsibility: BigDecimal
+  - status: BillStatus
+  --
+  + Bill(patient: Patient, billDate: Date)
+  + addChargeLineItem(item: ChargeLineItem): void
+  + calculateTotalAmount(): BigDecimal
+  + setPatientResponsibility(amount: BigDecimal): void
+  + getChargeLineItems(): List<ChargeLineItem>
+  + getTotalAmount(): BigDecimal
+  + getPatientResponsibility(): BigDecimal
+  + getBillDetails(): String
+}
+
+class ChargeLineItem {
+  - chargeLineItemId: String
+  - description: String
+  - quantity: int
+  - unitPrice: BigDecimal
+  - amount: BigDecimal
+  --
+  + ChargeLineItem(service: Service, quantity: int, unitPrice: BigDecimal)
+  + calculateAmount(): BigDecimal
+  + getAmount(): BigDecimal
+  + getDescription(): String
+  + getUnitPrice(): BigDecimal
+}
+
+Bill "1" *-- "*" ChargeLineItem : contains
+Bill "*" --> "1" Patient : isFor >
+
+' --- Services and Pricing ---
+abstract class Service {
+  - serviceId: String
+  - name: String
+  - description: String
+  - basePrice: BigDecimal ' Default or list price, adjusted by PricingStrategy
+  - serviceType: ServiceType
+  --
+  + getServiceId(): String
+  + getName(): String
+  + getBasePrice(): BigDecimal
+  + getServiceType(): ServiceType
+}
+
+class Procedure extends Service {
+  - procedureCode: String
+  --
+  + getProcedureCode(): String
+}
+
+class Medication extends Service {
+  - drugId: String
+  - dosage: String
+  --
+  + getDrugId(): String
+}
+
+class DiagnosticTest extends Service {
+  - testCode: String
+  - labName: String
+  --
+  + getTestCode(): String
+}
+
+class RoomOccupancy extends Service {
+  - roomNumber: String
+  - stayDurationDays: int
+  --
+  + getRoomNumber(): String
+  + getStayDurationDays(): int
+}
+
+ChargeLineItem "1" --> "1" Service : refersTo
+
+interface PricingStrategy <<Strategy>> {
+  + calculatePrice(service: Service): BigDecimal
+}
+
+class StandardPricingStrategy implements PricingStrategy {
+  + calculatePrice(service: Service): BigDecimal
+}
+
+class VolumePricingStrategy implements PricingStrategy {
+  - volumeThreshold: int
+  - discountRate: BigDecimal
+  --
+  + calculatePrice(service: Service): BigDecimal
+}
+
+class PricingEngine {
+  - pricingStrategies: Map<ServiceType, PricingStrategy>
+  --
+  + PricingEngine()
+  + getPrice(service: Service): BigDecimal
+  + registerPricingStrategy(serviceType: ServiceType, strategy: PricingStrategy): void
+}
+
+PricingEngine "1" --> "*" PricingStrategy : uses
+
+' --- Billing Policies (Strategy Pattern) ---
+interface BillingStrategy <<Strategy>> {
+  + applyPolicy(bill: Bill, patient: Patient): BigDecimal
+}
+
+class InsuranceBillingStrategy implements BillingStrategy {
+  + applyPolicy(bill: Bill, patient: Patient): BigDecimal
+}
+
+class GovernmentBillingStrategy implements BillingStrategy {
+  + applyPolicy(bill: Bill, patient: Patient): BigDecimal
+}
+
+class SelfPayBillingStrategy implements BillingStrategy {
+  + applyPolicy(bill: Bill, patient: Patient): BigDecimal
+}
+
+' --- Billing Orchestration ---
+class BillingService {
+  - pricingEngine: PricingEngine
+  - billingStrategies: Map<BillingPreference, BillingStrategy>
+  --
+  + BillingService(pricingEngine: PricingEngine)
+  + generateDischargeBill(patient: Patient, servicesRendered: List<Service>): Bill
+  - determineBillingStrategy(patient: Patient): BillingStrategy
+  + registerBillingStrategy(preference: BillingPreference, strategy: BillingStrategy): void
+}
+
+BillingService "1" --> "1" PricingEngine : orchestrates
+BillingService "1" --> "*" BillingStrategy : manages
+
+' Notes for clarity and design justification
+note "Strategy Pattern: Ensures runtime interchangeability of billing policies (US-B1, US-SYS1).\nFacilitates adaptation to changing regulations without structural redesign." as N1
+BillingStrategy .. N1
+
+note "Strategy Pattern: Allows independent and configurable pricing rules for diverse charge sources.\nEnables flexible pricing for procedures, medications, tests, and room occupancy." as N2
+PricingStrategy .. N2
+
+note "Workflow for bill generation (US-SYS2, US-SYS3):\n1. BillingService uses PricingEngine to determine unit prices for Services and create ChargeLineItems.\n2. BillingService selects and applies the appropriate BillingStrategy based on Patient's billing preference.\n3. The chosen BillingStrategy calculates and sets the patient's financial responsibility on the Bill." as N3
+BillingService .. N3
+
+note "PatientType (Inpatient/Outpatient) can influence which services are typically included in a bill (US-P2, US-P3).\nThis information is accessible to the BillingStrategy." as N4
+PatientType .. N4
+
+@enduml
+```
